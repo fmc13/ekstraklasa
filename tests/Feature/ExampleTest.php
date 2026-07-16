@@ -30,3 +30,12 @@ test('logo component uses root-absolute public image path', function () {
         ->toContain("'/images/ekstraklasa-logo.png'")
         ->not->toContain('import.meta.env.BASE_URL');
 });
+
+test('vite config defaults asset base to /build/ for font urls', function () {
+    $source = file_get_contents(base_path('vite.config.ts'));
+
+    expect($source)
+        ->toContain("return '/build/'")
+        ->toContain('/build/')
+        ->not->toContain("let base = '/'");
+});

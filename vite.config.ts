@@ -12,26 +12,39 @@ if (isSvelteCheck) {
     process.env.LARAVEL_BYPASS_ENV_CHECK ??= '1';
 }
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, process.cwd(), '');
-
-    // VITE_BASE ma pierwszeństwo. W przeciwnym razie bierzemy pathname z APP_URL
-    // tylko dla lokalnych instalacji w podkatalogu (np. /ekstraklasa/public).
-    // Na produkcji (https://ekstraklasa.9liga.waw.pl) pathname to "/" → base "/".
-    let base = '/';
-
+/**
+ * Vite `base` musi kończyć się na `/build/`, inaczej @font-face z laravel-vite-plugin
+ * generuje url("/assets/...") zamiast url("/build/assets/...") i fonty 404-ują.
+ *
+ * VITE_BASE ma pierwszeństwo. Lokalny XAMPP w podkatalogu bierze pathname z APP_URL.
+ */
+function resolveViteBase(env: Record<string, string>): string {
     if (env.VITE_BASE) {
-        base = env.VITE_BASE.endsWith('/') ? env.VITE_BASE : `${env.VITE_BASE}/`;
-    } else if (env.APP_URL) {
-        const pathname = new URL(env.APP_URL).pathname.replace(/\/$/, '');
+        const value = env.VITE_BASE.endsWith('/') ? env.VITE_BASE : `${env.VITE_BASE}/`;
 
-        if (pathname !== '') {
-            base = `${pathname}/`;
+        return value.endsWith('/build/') ? value : `${value.replace(/\/$/, '')}/build/`;
+    }
+
+    if (env.APP_URL) {
+        try {
+            const pathname = new URL(env.APP_URL).pathname.replace(/\/$/, '');
+
+            if (pathname !== '') {
+                return `${pathname}/build/`;
+            }
+        } catch {
+            // ignore invalid APP_URL
         }
     }
 
+    return '/build/';
+}
+
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, process.cwd(), '');
+
     return {
-        base,
+        base: resolveViteBase(env),
         plugins: [
             laravel({
                 input: ['resources/css/app.css', 'resources/js/app.ts'],

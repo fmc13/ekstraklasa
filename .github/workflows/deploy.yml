@@ -37,8 +37,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate --force --no-interaction
           sed -i 's|^APP_URL=.*|APP_URL=https://ekstraklasa.9liga.waw.pl|' .env
-          # Vite base="/" na subdomenie (bez /ekstraklasa/public)
-          printf '\nVITE_BASE=/\n' >> .env
+          # Vite base musi być /build/ — inaczej @font-face wskazuje na /assets/ (404)
+          printf '\nVITE_BASE=/build/\n' >> .env
           grep -E '^APP_URL=|^VITE_BASE=' .env
           php artisan wayfinder:generate --with-form --no-interaction
 
@@ -52,7 +52,12 @@ jobs:
             grep -R -n -E 'localhost/ekstraklasa|/ekstraklasa/public/' public/build | head -20 >&2
             exit 1
           fi
-          echo "Asset URLs OK (brak localhost/ekstraklasa)"
+          if grep -R -E -q 'url\("/assets/' public/build; then
+            echo "Build ma fonty pod /assets/ zamiast /build/assets/ — przerywam deploy" >&2
+            grep -R -n -E 'url\("/assets/' public/build | head -20 >&2
+            exit 1
+          fi
+          echo "Asset URLs OK (brak localhost/ekstraklasa, fonty pod /build/assets/)"
 
       - name: Przygotowanie produkcyjnego .env do wdrożenia
         env:
