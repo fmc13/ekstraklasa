@@ -18,111 +18,124 @@ jobs:
       - name: Pobranie repozytorium
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.5'
-          tools: composer:v2
-          extensions: mbstring, xml, ctype, fileinfo, sqlite, pdo, pdo_sqlite
-
-      - name: Instalacja zależności PHP
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
-
-      - name: Przygotowanie .env i SQLite
-        env:
-          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
-        run: |
-          if [ -n "${PRODUCTION_ENV}" ]; then
-            printf '%s\n' "${PRODUCTION_ENV}" > .env
-          else
-            cp .env1.txt .env
-          fi
-
-          mkdir -p database \
-            storage/framework/sessions \
-            storage/framework/views \
-            storage/framework/cache/data \
-            storage/logs \
-            bootstrap/cache
-
-          touch \
-            storage/framework/sessions/.gitkeep \
-            storage/framework/views/.gitkeep \
-            storage/framework/cache/data/.gitkeep \
-            storage/logs/.gitkeep \
-            bootstrap/cache/.gitkeep
-
-          rm -f database/database.sqlite
-          touch database/database.sqlite
-          php artisan migrate --force --no-interaction
-          php artisan db:seed --force --no-interaction
-
       - name: Instalacja lftp
         run: sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp
 
-      - name: Szybki upload .env + sqlite + storage przez FTP
+      - name: Pobierz i napraw .env na właściwym docroot
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_PATH: ${{ secrets.FTP_PATH }}
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
         run: |
           set -euo pipefail
-          : "${FTP_SERVER:?FTP_SERVER secret missing}"
-          : "${FTP_USERNAME:?FTP_USERNAME secret missing}"
-          : "${FTP_PASSWORD:?FTP_PASSWORD secret missing}"
-          : "${FTP_PATH:?FTP_PATH secret missing}"
-
-          REMOTE_DIR="${FTP_PATH%/}/"
+          REMOTE_DIR="public_html/ekstraklasa/"
 
           lftp -c "
             set ssl:verify-certificate no;
             set ftp:passive-mode true;
-            set net:max-retries 3;
-            set net:timeout 30;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+            cd ${REMOTE_DIR};
+            get .env -o /tmp/prod.env || true;
+            bye
+          "
+
+          if [ -n "${PRODUCTION_ENV:-}" ]; then
+            printf '%s\n' "${PRODUCTION_ENV}" > /tmp/prod.env
+          elif [ ! -f /tmp/prod.env ]; then
+            cp .env1.txt /tmp/prod.env
+          fi
+
+          echo "=== Production .env keys (redacted) ==="
+          sed -E 's/^(APP_KEY|DB_PASSWORD|MAIL_PASSWORD|API_FOOTBALL_KEY|.*_SECRET)=.*/\1=(redacted)/' /tmp/prod.env
+
+          # Napraw typowe przyczyny 500 na shared hostingu
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/prod.env')
+          lines = path.read_text().splitlines()
+          kv = {}
+          order = []
+          for line in lines:
+              if not line or line.startswith('#') or '=' not in line:
+                  order.append(('raw', line))
+                  continue
+              k, v = line.split('=', 1)
+              kv[k] = v
+              order.append(('kv', k))
+
+          def set_key(key, value):
+              kv[key] = value
+              if not any(t == 'kv' and k == key for t, k in order):
+                  order.append(('kv', key))
+
+          set_key('APP_ENV', 'production')
+          set_key('APP_DEBUG', 'true')  # tymczasowo do weryfikacji
+          set_key('APP_URL', 'https://ekstraklasa.9liga.waw.pl')
+          set_key('SESSION_DRIVER', 'file')
+          set_key('CACHE_STORE', 'file')
+          set_key('QUEUE_CONNECTION', 'sync')
+          if not kv.get('APP_KEY', '').startswith('base64:'):
+              import base64, os
+              set_key('APP_KEY', 'base64:' + base64.b64encode(os.urandom(32)).decode())
+
+          out = []
+          seen = set()
+          for t, k in order:
+              if t == 'raw':
+                  out.append(k)
+              elif k not in seen:
+                  out.append(f'{k}={kv[k]}')
+                  seen.add(k)
+          for k, v in kv.items():
+              if k not in seen:
+                  out.append(f'{k}={v}')
+          path.write_text('\n'.join(out) + '\n')
+          PY
+
+          cp /tmp/prod.env .env
+
+          lftp -c "
+            set ssl:verify-certificate no;
+            set ftp:passive-mode true;
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
             cd ${REMOTE_DIR};
             put -O . .env;
             put -O bootstrap bootstrap/app.php;
-            mkdir -p database public;
-            put -O database database/database.sqlite;
-            put -O public public/__diag.php;
-            put -O public public/diag.php;
-            put public/diag.php -o diag.php;
-            # Bust OPcache: usuń i wgraj ponownie index.php
-            rm -f public/index.php;
-            put -O public public/index.php;
             mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache;
             put -O storage/framework/sessions storage/framework/sessions/.gitkeep;
             put -O storage/framework/views storage/framework/views/.gitkeep;
             put -O storage/framework/cache/data storage/framework/cache/data/.gitkeep;
             put -O storage/logs storage/logs/.gitkeep;
             put -O bootstrap/cache bootstrap/cache/.gitkeep;
+            rm -f public/index.php;
+            put -O public public/index.php;
+            put -O public public/diag.php;
             rm -f bootstrap/cache/config.php;
-            chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache database;
-            chmod 666 database/database.sqlite;
-            chmod 644 .env public/index.php;
+            chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache;
             ls -l .env;
             ls -l public/index.php;
-            ls -l bootstrap/app.php;
             bye
           "
 
-      - name: Wywołaj stronę i pobierz laravel.log
+      - name: Sprawdź HTTP i logi
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_PATH: ${{ secrets.FTP_PATH }}
         run: |
           set -euo pipefail
-          REMOTE_DIR="${FTP_PATH%/}/"
+          REMOTE_DIR="public_html/ekstraklasa/"
 
-          echo "=== HTTP home ==="
-          curl -sS -o /tmp/home.html -w 'status:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/' || true
-          curl -sS -o /tmp/boot.txt -w 'boot_status:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/?_boot_info=1' || true
-          head -c 400 /tmp/boot.txt || true
-          echo
+          sleep 2
+          echo "=== HTTP ==="
+          curl -sS -o /tmp/boot.txt -w 'boot:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/?_boot_info=1' || true
+          echo '--- boot body ---'
+          cat /tmp/boot.txt; echo
+          curl -sS -o /tmp/home.html -w 'home:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/' || true
+          curl -sS -o /tmp/plain.txt -w 'plain:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/?_plain_error=1' || true
+          echo '--- plain body ---'
+          head -c 1200 /tmp/plain.txt; echo
 
           lftp -c "
             set ssl:verify-certificate no;
@@ -130,13 +143,10 @@ jobs:
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
             cd ${REMOTE_DIR};
             cls -l storage/logs/;
-            get storage/logs/laravel.log -o /tmp/laravel.log || echo 'NO_LOG';
+            get storage/logs/laravel.log -o /tmp/laravel.log || echo NO_LOG;
             bye
           "
-
           if [ -f /tmp/laravel.log ]; then
-            echo "=== laravel.log (tail) ==="
+            echo "=== laravel.log ==="
             tail -n 120 /tmp/laravel.log
-          else
-            echo "Brak storage/logs/laravel.log na serwerze"
           fi
