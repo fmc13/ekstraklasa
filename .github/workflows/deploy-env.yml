@@ -7,6 +7,8 @@ on:
     paths:
       - '.env1.txt'
       - '.github/workflows/deploy-env.yml'
+      - 'public/index.php'
+      - 'bootstrap/app.php'
   workflow_dispatch:
 
 jobs:
@@ -71,7 +73,6 @@ jobs:
           : "${FTP_PASSWORD:?FTP_PASSWORD secret missing}"
           : "${FTP_PATH:?FTP_PATH secret missing}"
 
-          # Normalizacja ścieżki katalogu na serwerze
           REMOTE_DIR="${FTP_PATH%/}/"
 
           lftp -c "
@@ -87,22 +88,55 @@ jobs:
             put -O database database/database.sqlite;
             put -O public public/__diag.php;
             put -O public public/diag.php;
+            put public/diag.php -o diag.php;
+            # Bust OPcache: usuń i wgraj ponownie index.php
+            rm -f public/index.php;
             put -O public public/index.php;
-            put public/diag.php -o diag.php;            mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache;
+            mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache;
             put -O storage/framework/sessions storage/framework/sessions/.gitkeep;
             put -O storage/framework/views storage/framework/views/.gitkeep;
             put -O storage/framework/cache/data storage/framework/cache/data/.gitkeep;
             put -O storage/logs storage/logs/.gitkeep;
             put -O bootstrap/cache bootstrap/cache/.gitkeep;
-            # Usuń ewentualny cache config, który ignoruje .env
             rm -f bootstrap/cache/config.php;
-            # Uprawnienia zapisu dla PHP na shared hostingu
-            chmod 755 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache database;
-            chmod 664 database/database.sqlite;
-            chmod 644 .env;
+            chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache database;
+            chmod 666 database/database.sqlite;
+            chmod 644 .env public/index.php;
             ls -l .env;
-            ls -l database/database.sqlite;
-            ls -l public/__diag.php;
+            ls -l public/index.php;
             ls -l bootstrap/app.php;
             bye
           "
+
+      - name: Wywołaj stronę i pobierz laravel.log
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PATH: ${{ secrets.FTP_PATH }}
+        run: |
+          set -euo pipefail
+          REMOTE_DIR="${FTP_PATH%/}/"
+
+          echo "=== HTTP home ==="
+          curl -sS -o /tmp/home.html -w 'status:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/' || true
+          curl -sS -o /tmp/boot.txt -w 'boot_status:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/?_boot_info=1' || true
+          head -c 400 /tmp/boot.txt || true
+          echo
+
+          lftp -c "
+            set ssl:verify-certificate no;
+            set ftp:passive-mode true;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+            cd ${REMOTE_DIR};
+            cls -l storage/logs/;
+            get storage/logs/laravel.log -o /tmp/laravel.log || echo 'NO_LOG';
+            bye
+          "
+
+          if [ -f /tmp/laravel.log ]; then
+            echo "=== laravel.log (tail) ==="
+            tail -n 120 /tmp/laravel.log
+          else
+            echo "Brak storage/logs/laravel.log na serwerze"
+          fi
