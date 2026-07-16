@@ -9,6 +9,7 @@ on:
       - '.github/workflows/deploy-env.yml'
       - 'public/index.php'
       - 'bootstrap/app.php'
+      - 'config/database.php'
   workflow_dispatch:
 
 jobs:
@@ -18,10 +19,33 @@ jobs:
       - name: Pobranie repozytorium
         uses: actions/checkout@v4
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          extensions: mbstring, xml, ctype, fileinfo, tokenizer, pdo_sqlite, sqlite3
+
+      - name: Instalacja zależności i przygotowanie SQLite
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+          cp .env1.txt .env
+          php artisan key:generate --force --no-interaction
+          # Wymuś czysty SQLite pod shared hosting
+          sed -i 's|^DB_CONNECTION=.*|DB_CONNECTION=sqlite|' .env
+          sed -i 's|^DB_DATABASE=.*|DB_DATABASE=|' .env
+          mkdir -p database storage/framework/{sessions,views,cache/data} storage/logs bootstrap/cache
+          rm -f database/database.sqlite
+          touch database/database.sqlite
+          php artisan migrate --force --no-interaction
+          php artisan db:seed --force --no-interaction
+          php artisan tinker --execute 'echo "users=".App\Models\User::count().PHP_EOL;'
+
       - name: Instalacja lftp
         run: sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp
 
-      - name: Pobierz i napraw .env na właściwym docroot
+      - name: Napraw .env i wgraj SQLite + config
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -31,27 +55,40 @@ jobs:
           set -euo pipefail
           REMOTE_DIR="public_html/ekstraklasa/"
 
+          # Bazą jest .env1.txt (sqlite). MySQL z PRODUCTION_ENV / starego .env
+          # powodował 500 przy logowaniu — wymuszamy sqlite + świeżą bazę.
+          cp .env1.txt /tmp/prod.env
+
           lftp -c "
             set ssl:verify-certificate no;
             set ftp:passive-mode true;
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
             cd ${REMOTE_DIR};
-            get .env -o /tmp/prod.env || true;
+            get .env -o /tmp/remote.env || true;
             bye
-          "
+          " || true
 
+          # Preferuj istniejący APP_KEY (remote, potem secret), żeby nie unieważniać sesji
+          pick_key() {
+            local file="$1"
+            if [ -f "$file" ]; then
+              grep -E '^APP_KEY=base64:' "$file" | head -1 | cut -d= -f2- || true
+            fi
+          }
           if [ -n "${PRODUCTION_ENV:-}" ]; then
-            printf '%s\n' "${PRODUCTION_ENV}" > /tmp/prod.env
-          elif [ ! -f /tmp/prod.env ]; then
-            cp .env1.txt /tmp/prod.env
+            printf '%s\n' "${PRODUCTION_ENV}" > /tmp/secret.env
+          fi
+          APP_KEY_VALUE="$(pick_key /tmp/remote.env)"
+          if [ -z "${APP_KEY_VALUE:-}" ]; then
+            APP_KEY_VALUE="$(pick_key /tmp/secret.env)"
+          fi
+          if [ -n "${APP_KEY_VALUE:-}" ]; then
+            sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY_VALUE}|" /tmp/prod.env
           fi
 
-          echo "=== Production .env keys (redacted) ==="
-          sed -E 's/^(APP_KEY|DB_PASSWORD|MAIL_PASSWORD|API_FOOTBALL_KEY|.*_SECRET)=.*/\1=(redacted)/' /tmp/prod.env
-
-          # Napraw typowe przyczyny 500 na shared hostingu
           python3 - <<'PY'
           from pathlib import Path
+          import base64, os, re
           path = Path('/tmp/prod.env')
           lines = path.read_text().splitlines()
           kv = {}
@@ -76,11 +113,12 @@ jobs:
           set_key('CACHE_STORE', 'file')
           set_key('QUEUE_CONNECTION', 'sync')
           set_key('DB_CONNECTION', 'sqlite')
-          # Względna ścieżka SQLite + CWD=public/ → 500 przy logowaniu
-          if kv.get('DB_DATABASE', '') in ('database/database.sqlite', 'database.sqlite'):
-              set_key('DB_DATABASE', '')
+          set_key('DB_DATABASE', '')
+          # Usuń MySQL-only klucze, żeby nie myliły
+          for k in list(kv):
+              if k in ('DB_HOST', 'DB_PORT', 'DB_USERNAME', 'DB_PASSWORD', 'DB_SOCKET', 'DB_URL'):
+                  kv.pop(k, None)
           if not kv.get('APP_KEY', '').startswith('base64:'):
-              import base64, os
               set_key('APP_KEY', 'base64:' + base64.b64encode(os.urandom(32)).decode())
 
           out = []
@@ -88,7 +126,7 @@ jobs:
           for t, k in order:
               if t == 'raw':
                   out.append(k)
-              elif k not in seen:
+              elif k in kv and k not in seen:
                   out.append(f'{k}={kv[k]}')
                   seen.add(k)
           for k, v in kv.items():
@@ -97,17 +135,23 @@ jobs:
           path.write_text('\n'.join(out) + '\n')
           PY
 
+          echo "=== Production .env keys (redacted) ==="
+          sed -E 's/^(APP_KEY|DB_PASSWORD|MAIL_PASSWORD|API_FOOTBALL_KEY|.*_SECRET)=.*/\1=(redacted)/' /tmp/prod.env
+
           cp /tmp/prod.env .env
+          test -s database/database.sqlite
 
           lftp -c "
             set ssl:verify-certificate no;
             set ftp:passive-mode true;
+            set net:max-retries 3;
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
             cd ${REMOTE_DIR};
             put -O . .env;
             put -O bootstrap bootstrap/app.php;
             put -O config config/database.php;
             mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache database;
+            put -O database database/database.sqlite;
             put -O storage/framework/sessions storage/framework/sessions/.gitkeep;
             put -O storage/framework/views storage/framework/views/.gitkeep;
             put -O storage/framework/cache/data storage/framework/cache/data/.gitkeep;
@@ -117,10 +161,10 @@ jobs:
             put -O public public/index.php;
             rm -f bootstrap/cache/config.php;
             chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache database;
-            chmod 666 database/database.sqlite || true;
+            chmod 666 database/database.sqlite;
             ls -l .env;
             ls -l config/database.php;
-            ls -l database/database.sqlite || echo 'MISSING database.sqlite';
+            ls -l database/database.sqlite;
             ls -l public/index.php;
             bye
           "
@@ -134,7 +178,7 @@ jobs:
           set -euo pipefail
           REMOTE_DIR="public_html/ekstraklasa/"
 
-          sleep 2
+          sleep 3
           echo "=== HTTP ==="
           curl -sS -o /dev/null -w 'home:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/'
           curl -sS -o /dev/null -w 'login:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/login'
@@ -157,16 +201,19 @@ jobs:
           if [ "$code" = "500" ]; then
             echo "Login nadal zwraca 500" >&2
             head -c 1500 /tmp/login-post.html >&2 || true
-            # dociągnij log
             lftp -c "
               set ssl:verify-certificate no;
               set ftp:passive-mode true;
               open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
               cd ${REMOTE_DIR};
               get storage/logs/laravel.log -o /tmp/laravel.log || true;
+              get .env -o /tmp/live.env || true;
               bye
             "
-            tail -n 80 /tmp/laravel.log >&2 || true
+            echo '=== live DB_* ===' >&2
+            grep -E '^DB_' /tmp/live.env >&2 || true
+            echo '=== laravel.log tail ===' >&2
+            tail -n 100 /tmp/laravel.log >&2 || true
             exit 1
           fi
-          echo "Login POST OK (nie 500)"
+          echo "Login POST OK (nie 500): $code"
