@@ -1,0 +1,96 @@
+name: Deploy production env (hotfix)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.env1.txt'
+      - '.github/workflows/deploy-env.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobranie repozytorium
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          extensions: mbstring, xml, ctype, fileinfo, sqlite, pdo, pdo_sqlite
+
+      - name: Instalacja zależności PHP
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+      - name: Przygotowanie .env i SQLite
+        env:
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+        run: |
+          if [ -n "${PRODUCTION_ENV}" ]; then
+            printf '%s\n' "${PRODUCTION_ENV}" > .env
+          else
+            cp .env1.txt .env
+          fi
+
+          mkdir -p database \
+            storage/framework/sessions \
+            storage/framework/views \
+            storage/framework/cache/data \
+            storage/logs \
+            bootstrap/cache
+
+          touch \
+            storage/framework/sessions/.gitkeep \
+            storage/framework/views/.gitkeep \
+            storage/framework/cache/data/.gitkeep \
+            storage/logs/.gitkeep \
+            bootstrap/cache/.gitkeep
+
+          rm -f database/database.sqlite
+          touch database/database.sqlite
+          php artisan migrate --force --no-interaction
+          php artisan db:seed --force --no-interaction
+
+      - name: Instalacja lftp
+        run: sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp
+
+      - name: Szybki upload .env + sqlite + storage przez FTP
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PATH: ${{ secrets.FTP_PATH }}
+        run: |
+          set -euo pipefail
+          : "${FTP_SERVER:?FTP_SERVER secret missing}"
+          : "${FTP_USERNAME:?FTP_USERNAME secret missing}"
+          : "${FTP_PASSWORD:?FTP_PASSWORD secret missing}"
+          : "${FTP_PATH:?FTP_PATH secret missing}"
+
+          # Normalizacja ścieżki katalogu na serwerze
+          REMOTE_DIR="${FTP_PATH%/}/"
+
+          lftp -c "
+            set ssl:verify-certificate no;
+            set ftp:passive-mode true;
+            set net:max-retries 3;
+            set net:timeout 30;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+            cd ${REMOTE_DIR};
+            put -O . .env;
+            mkdir -p database;
+            put -O database database/database.sqlite;
+            mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache;
+            put -O storage/framework/sessions storage/framework/sessions/.gitkeep;
+            put -O storage/framework/views storage/framework/views/.gitkeep;
+            put -O storage/framework/cache/data storage/framework/cache/data/.gitkeep;
+            put -O storage/logs storage/logs/.gitkeep;
+            put -O bootstrap/cache bootstrap/cache/.gitkeep;
+            ls -l .env;
+            ls -l database/database.sqlite;
+            bye
+          "
