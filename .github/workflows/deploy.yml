@@ -37,10 +37,22 @@ jobs:
           cp .env.example .env
           php artisan key:generate --force --no-interaction
           sed -i 's|^APP_URL=.*|APP_URL=https://ekstraklasa.9liga.waw.pl|' .env
+          # Vite base="/" na subdomenie (bez /ekstraklasa/public)
+          printf '\nVITE_BASE=/\n' >> .env
+          grep -E '^APP_URL=|^VITE_BASE=' .env
           php artisan wayfinder:generate --with-form --no-interaction
 
       - name: Budowanie assetów frontendu
         run: npm run build
+
+      - name: Weryfikacja URL-i w zbudowanych assetach
+        run: |
+          if grep -R -E -q 'localhost/ekstraklasa|/ekstraklasa/public/' public/build; then
+            echo "Build zawiera lokalne ścieżki /ekstraklasa/public — przerywam deploy" >&2
+            grep -R -n -E 'localhost/ekstraklasa|/ekstraklasa/public/' public/build | head -20 >&2
+            exit 1
+          fi
+          echo "Asset URLs OK (brak localhost/ekstraklasa)"
 
       - name: Przygotowanie produkcyjnego .env do wdrożenia
         env:

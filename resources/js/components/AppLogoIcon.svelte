@@ -7,7 +7,8 @@
         [key: string]: unknown;
     } = $props();
 
-    const logoSrc = `${import.meta.env.BASE_URL}images/ekstraklasa-logo.png`;
+    // Plik leży w public/images — zawsze od roota domeny (nie od Vite base / subdirectory).
+    const logoSrc = '/images/ekstraklasa-logo.png';
 </script>
 
 <img

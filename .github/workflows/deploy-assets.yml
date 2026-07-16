@@ -1,0 +1,97 @@
+name: Deploy frontend assets (hotfix)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'resources/**'
+      - 'vite.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-assets.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobranie repozytorium
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          extensions: mbstring, xml, ctype, fileinfo, tokenizer
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalacja zależności
+        run: |
+          composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+          npm ci
+
+      - name: Build z produkcyjnym APP_URL
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force --no-interaction
+          sed -i 's|^APP_URL=.*|APP_URL=https://ekstraklasa.9liga.waw.pl|' .env
+          printf '\nVITE_BASE=/\n' >> .env
+          grep -E '^APP_URL=|^VITE_BASE=' .env
+          php artisan wayfinder:generate --with-form --no-interaction
+          npm run build
+          if grep -R -E -q 'localhost/ekstraklasa|/ekstraklasa/public/' public/build; then
+            echo "Build zawiera lokalne ścieżki" >&2
+            grep -R -n -E 'localhost/ekstraklasa|/ekstraklasa/public/' public/build | head -20 >&2
+            exit 1
+          fi
+
+      - name: Instalacja lftp
+        run: sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp
+
+      - name: Upload public/build + images przez FTP
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          REMOTE_DIR="public_html/ekstraklasa/"
+
+          lftp -c "
+            set ssl:verify-certificate no;
+            set ftp:passive-mode true;
+            set net:max-retries 3;
+            set net:timeout 60;
+            set mirror:parallel-transfer-count 4;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+            cd ${REMOTE_DIR};
+            mirror -R --delete --verbose public/build public/build;
+            mirror -R --verbose public/images public/images;
+            ls -l public/build/manifest.json;
+            bye
+          "
+
+      - name: Smoke check
+        run: |
+          sleep 2
+          curl -sS -o /dev/null -w 'home:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/'
+          # Nowe assety nie powinny wskazywać na /ekstraklasa/public/
+          html=$(curl -sS 'https://ekstraklasa.9liga.waw.pl/')
+          if echo "$html" | rg -q '/ekstraklasa/public/'; then
+            echo "HTML nadal zawiera /ekstraklasa/public/" >&2
+            echo "$html" | rg -n '/ekstraklasa/public/' | head -10 >&2
+            exit 1
+          fi
+          routes_js=$(echo "$html" | rg -o '/build/assets/routes-[^"]+\.js' | head -1)
+          echo "routes bundle: $routes_js"
+          curl -sS "https://ekstraklasa.9liga.waw.pl${routes_js}" | rg -q 'localhost/ekstraklasa' && {
+            echo "routes JS nadal ma localhost" >&2
+            exit 1
+          } || echo "routes JS OK"
