@@ -1,0 +1,76 @@
+name: Deploy Laravel to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pobranie repozytorium
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          extensions: mbstring, xml, ctype, fileinfo, mysql, tokenizer, pdo, pdo_mysql
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalacja zależności PHP
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+      - name: Instalacja zależności Node
+        run: npm ci
+
+      - name: Przygotowanie .env pod build produkcyjny
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force --no-interaction
+          sed -i 's|^APP_URL=.*|APP_URL=https://ekstraklasa.9liga.waw.pl|' .env
+          php artisan wayfinder:generate --with-form --no-interaction
+
+      - name: Budowanie assetów frontendu
+        run: npm run build
+
+      - name: Dołącz vendor i public/build do deployu FTP
+        run: |
+          # FTP-Deploy-Action pomija pliki z .gitignore — wymuszamy ich uwzględnienie
+          git add -f vendor public/build
+
+      - name: Wdrożenie przez FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_PATH }}
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
+            **/tests/**
+            **/.env
+            **/.env.*
+            **/storage/logs/**
+            **/storage/framework/cache/**
+            **/storage/framework/sessions/**
+            **/storage/framework/views/**
+            **/storage/debugbar/**
+            **/README.md
+            **/phpunit.xml
+            **/.editorconfig
+            **/.gitattributes
+            **/.gitignore
+            **/Dane/**
+            **/.ftp-deploy-sync-state.json
