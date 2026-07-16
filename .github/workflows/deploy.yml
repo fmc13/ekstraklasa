@@ -18,7 +18,7 @@ jobs:
         with:
           php-version: '8.5'
           tools: composer:v2
-          extensions: mbstring, xml, ctype, fileinfo, mysql, tokenizer, pdo, pdo_mysql
+          extensions: mbstring, xml, ctype, fileinfo, mysql, sqlite, tokenizer, pdo, pdo_mysql, pdo_sqlite
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -42,10 +42,55 @@ jobs:
       - name: Budowanie assetów frontendu
         run: npm run build
 
-      - name: Dołącz vendor i public/build do deployu FTP
+      - name: Przygotowanie produkcyjnego .env do wdrożenia
+        env:
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
         run: |
-          # FTP-Deploy-Action pomija pliki z .gitignore — wymuszamy ich uwzględnienie
-          git add -f vendor public/build
+          if [ -n "${PRODUCTION_ENV}" ]; then
+            printf '%s\n' "${PRODUCTION_ENV}" > .env
+          elif [ -f .env1.txt ]; then
+            cp .env1.txt .env
+          else
+            echo "Brak secrets.PRODUCTION_ENV oraz pliku .env1.txt" >&2
+            exit 1
+          fi
+
+          if ! grep -qE '^APP_KEY=base64:.+' .env; then
+            php artisan key:generate --force --no-interaction
+          fi
+
+          mkdir -p database \
+            storage/framework/sessions \
+            storage/framework/views \
+            storage/framework/cache/data \
+            storage/logs \
+            storage/app/public \
+            storage/app/private \
+            bootstrap/cache
+
+          # Placeholdery, żeby puste katalogi trafiły na FTP
+          touch \
+            storage/framework/sessions/.gitkeep \
+            storage/framework/views/.gitkeep \
+            storage/framework/cache/data/.gitkeep \
+            storage/logs/.gitkeep \
+            bootstrap/cache/.gitkeep
+
+          # SQLite + migracje w CI (shared hosting bez artisan SSH)
+          if grep -qE '^DB_CONNECTION=sqlite' .env; then
+            rm -f database/database.sqlite
+            touch database/database.sqlite
+            php artisan migrate --force --no-interaction
+            php artisan db:seed --force --no-interaction
+          fi
+
+          # Wymuszamy upload plików ignorowanych przez .gitignore
+          git add -f .env vendor public/build database/database.sqlite \
+            storage/framework/sessions/.gitkeep \
+            storage/framework/views/.gitkeep \
+            storage/framework/cache/data/.gitkeep \
+            storage/logs/.gitkeep \
+            bootstrap/cache/.gitkeep
 
       - name: Wdrożenie przez FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -60,12 +105,9 @@ jobs:
             **/.github/**
             **/node_modules/**
             **/tests/**
-            **/.env
             **/.env.*
-            **/storage/logs/**
-            **/storage/framework/cache/**
-            **/storage/framework/sessions/**
-            **/storage/framework/views/**
+            **/.env1.txt
+            **/storage/logs/*.log
             **/storage/debugbar/**
             **/README.md
             **/phpunit.xml
