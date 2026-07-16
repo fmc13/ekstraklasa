@@ -8,6 +8,7 @@ on:
       - '.env1.txt'
       - '.github/workflows/deploy-env.yml'
       - 'deployment/migrate-once.php'
+      - 'deployment/mysql-probe.php'
       - 'public/index.php'
       - 'bootstrap/app.php'
       - 'config/database.php'
@@ -121,22 +122,42 @@ jobs:
 
           cp /tmp/prod.env .env
 
-          # Jednorazowy token + skrypt migracji (shared hosting bez SSH)
+          # Jednorazowy token + skrypty (shared hosting bez SSH)
           MIGRATE_TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
-          mkdir -p storage/app
+          mkdir -p storage/app \
+            storage/framework/sessions \
+            storage/framework/views \
+            storage/framework/cache/data \
+            storage/logs \
+            bootstrap/cache
+          touch storage/framework/sessions/.gitkeep \
+            storage/framework/views/.gitkeep \
+            storage/framework/cache/data/.gitkeep \
+            storage/logs/.gitkeep \
+            bootstrap/cache/.gitkeep
           printf '%s' "$MIGRATE_TOKEN" > storage/app/migrate.token
           cp deployment/migrate-once.php public/__migrate_once.php
+          cp deployment/mysql-probe.php public/__mysql_probe.php
 
           lftp -c "
             set ssl:verify-certificate no;
             set ftp:passive-mode true;
             set net:max-retries 3;
+            set cmd:fail-exit no;
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
             cd ${REMOTE_DIR};
             put -O . .env;
             put -O bootstrap bootstrap/app.php;
             put -O config config/database.php;
-            mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs storage/app bootstrap/cache;
+            mkdir storage;
+            mkdir storage/framework;
+            mkdir storage/framework/sessions;
+            mkdir storage/framework/views;
+            mkdir storage/framework/cache;
+            mkdir storage/framework/cache/data;
+            mkdir storage/logs;
+            mkdir storage/app;
+            mkdir bootstrap/cache;
             put -O storage/framework/sessions storage/framework/sessions/.gitkeep;
             put -O storage/framework/views storage/framework/views/.gitkeep;
             put -O storage/framework/cache/data storage/framework/cache/data/.gitkeep;
@@ -146,28 +167,106 @@ jobs:
             rm -f public/index.php public/diag.php public/__diag.php;
             put -O public public/index.php;
             put -O public public/__migrate_once.php;
+            put -O public public/__mysql_probe.php;
             rm -f bootstrap/cache/config.php;
             chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs storage/app bootstrap/cache;
             ls -l .env;
-            ls -l config/database.php;
             ls -l public/__migrate_once.php;
+            ls -l public/__mysql_probe.php;
             bye
           "
 
-          echo "=== Uruchamiam migracje MySQL na serwerze ==="
+          echo "=== Probe MySQL (uprawnienia / dostępne bazy) ==="
           sleep 2
-          migrate_body=$(curl -sS -w '\nHTTP:%{http_code}' \
-            "https://ekstraklasa.9liga.waw.pl/__migrate_once.php?token=${MIGRATE_TOKEN}")
-          echo "$migrate_body"
-          echo "$migrate_body" | grep -q 'MIGRATE_OK' || {
-            echo "Migracja MySQL nie powiodła się" >&2
-            # sprzątanie na wypadek gdy skrypt nie usunął się sam
+          probe_json=$(curl -sS "https://ekstraklasa.9liga.waw.pl/__mysql_probe.php?token=${MIGRATE_TOKEN}")
+          echo "$probe_json"
+          printf '%s' "$probe_json" > /tmp/mysql-probe.json
+
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+          probe = json.loads(Path('/tmp/mysql-probe.json').read_text())
+          env_path = Path('/tmp/prod.env')
+          status_path = Path('/tmp/mysql-status.txt')
+
+          if probe.get('error'):
+              status_path.write_text('error')
+              raise SystemExit(f"MySQL login failed: {probe['error']}")
+
+          if probe.get('can_use_configured_database'):
+              print('Configured DB is usable:', probe.get('configured_database'))
+              status_path.write_text('ok')
+              raise SystemExit(0)
+
+          databases = probe.get('databases') or []
+          print('Configured DB NOT usable:', probe.get('configured_database'))
+          print('Accessible databases:', databases)
+          print('Error:', probe.get('configured_database_error'))
+
+          preferred = [d for d in databases if 'ekstraklasa' in d.lower()]
+          chosen = preferred[0] if len(preferred) == 1 else (databases[0] if len(databases) == 1 else None)
+          if not chosen:
+              status_path.write_text('denied')
+              raise SystemExit(
+                  'Użytkownik MySQL nie ma dostępu do skonfigurowanej bazy i nie da się '
+                  'jednoznacznie wybrać zamiennika. W panelu hostingu: utwórz bazę / nadaj '
+                  'ALL PRIVILEGES użytkownikowi z secrets.PRODUCTION_ENV, potem odpal ponownie '
+                  'workflow „Deploy production env (hotfix)”.'
+              )
+
+          text = env_path.read_text()
+          if re.search(r'^DB_DATABASE=', text, flags=re.M):
+              text = re.sub(r'^DB_DATABASE=.*$', f'DB_DATABASE={chosen}', text, flags=re.M)
+          else:
+              text += f'\nDB_DATABASE={chosen}\n'
+          env_path.write_text(text)
+          print('Updated DB_DATABASE ->', chosen)
+          status_path.write_text('updated')
+          PY
+
+          if [ "$(cat /tmp/mysql-status.txt)" = "updated" ]; then
+            cp /tmp/prod.env .env
+            echo "=== Re-upload .env with corrected DB_DATABASE ==="
+            grep -E '^DB_' .env | sed -E 's/^(DB_PASSWORD)=.*/\1=(redacted)/'
             lftp -c "
               set ssl:verify-certificate no;
               set ftp:passive-mode true;
               open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
               cd ${REMOTE_DIR};
-              rm -f public/__migrate_once.php storage/app/migrate.token;
+              put -O . .env;
+              rm -f bootstrap/cache/config.php;
+              bye
+            "
+          fi
+
+          echo "=== Uruchamiam migracje MySQL na serwerze ==="
+          # Odśwież token (probe go nie usuwa; migrate usuwa)
+          printf '%s' "$MIGRATE_TOKEN" > storage/app/migrate.token
+          lftp -c "
+            set ssl:verify-certificate no;
+            set ftp:passive-mode true;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+            cd ${REMOTE_DIR};
+            put -O storage/app storage/app/migrate.token;
+            put -O public public/__migrate_once.php;
+            bye
+          "
+
+          migrate_body=$(curl -sS -w '\nHTTP:%{http_code}' \
+            "https://ekstraklasa.9liga.waw.pl/__migrate_once.php?token=${MIGRATE_TOKEN}")
+          echo "$migrate_body"
+          echo "$migrate_body" | grep -q 'MIGRATE_OK' || {
+            echo "Migracja MySQL nie powiodła się" >&2
+            if echo "$migrate_body" | grep -q 'Access denied'; then
+              echo "Przyczyna: użytkownik MySQL nie ma uprawnień do bazy (SQLSTATE 1044)." >&2
+              echo "W panelu hostingu: utwórz bazę / nadaj ALL PRIVILEGES użytkownikowi z PRODUCTION_ENV." >&2
+            fi
+            lftp -c "
+              set ssl:verify-certificate no;
+              set ftp:passive-mode true;
+              open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+              cd ${REMOTE_DIR};
+              rm -f public/__migrate_once.php public/__mysql_probe.php storage/app/migrate.token;
               get storage/logs/laravel.log -o /tmp/laravel.log || true;
               bye
             " || true
@@ -175,13 +274,12 @@ jobs:
             exit 1
           }
 
-          # Upewnij się, że one-shot nie został
           lftp -c "
             set ssl:verify-certificate no;
             set ftp:passive-mode true;
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
             cd ${REMOTE_DIR};
-            rm -f public/__migrate_once.php storage/app/migrate.token;
+            rm -f public/__migrate_once.php public/__mysql_probe.php storage/app/migrate.token;
             bye
           " || true
 
