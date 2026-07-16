@@ -15,7 +15,7 @@ jobs:
       - name: Instalacja lftp
         run: sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp
 
-      - name: Listowanie struktury FTP
+      - name: Listowanie domains i public_html
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -23,33 +23,44 @@ jobs:
           FTP_PATH: ${{ secrets.FTP_PATH }}
         run: |
           set -euo pipefail
-          REMOTE_DIR="${FTP_PATH%/}/"
-          echo "FTP_PATH=${REMOTE_DIR}"
+          echo "Configured FTP_PATH=${FTP_PATH}"
 
           lftp -c "
             set ssl:verify-certificate no;
             set ftp:passive-mode true;
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
-            pwd;
-            echo '=== ROOT LS ===';
-            cls -l;
-            echo '=== CD FTP_PATH ===';
-            cd ${REMOTE_DIR};
-            pwd;
-            cls -l;
-            echo '=== public ===';
-            cls -l public/ || true;
-            echo '=== bootstrap ===';
-            cls -l bootstrap/ || true;
-            echo '=== find index.php ===';
-            find -name index.php || true;
-            echo '=== find .env ===';
-            find -name '.env' || true;
-            echo '=== find artisan ===';
-            find -name artisan || true;
-            echo '=== parent ===';
-            cd ..;
-            pwd;
-            cls -l;
+
+            echo '=== domains ===';
+            cls -l domains/;
+            echo '=== domains recursive names ===';
+            cls -1 domains/;
+
+            echo '=== public_html ===';
+            cls -l public_html/;
+
+            echo '=== public_html/ekstraklasa ===';
+            cls -l public_html/ekstraklasa/ || echo 'no ekstraklasa dir';
+
+            echo '=== public_html/eksraklasa ===';
+            cls -l public_html/eksraklasa/ || echo 'no eksraklasa dir';
+
+            echo '=== home ===';
+            cls -l home/;
+
+            echo '=== likely subdomain roots ===';
+            cls -l domains/*/ || true;
+            cls -l domains/*/public_html/ || true;
+            cls -l domains/*/*/ || true;
+
+            echo '=== look for artisan under public_html ===';
+            cls -l public_html/*/artisan || true;
+            cls -l public_html/*/public/index.php || true;
+
+            echo '=== look under domains for index.php sizes ===';
+            cls -l domains/*/public_html/index.php || true;
+            cls -l domains/*/public_html/public/index.php || true;
+            cls -l domains/*/public_html/.env || true;
+            cls -l domains/*/public_html/up || true;
+
             bye
           "
