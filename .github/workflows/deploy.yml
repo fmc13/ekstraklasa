@@ -93,12 +93,16 @@ jobs:
             storage/logs/.gitkeep \
             bootstrap/cache/.gitkeep
 
-          # SQLite + migracje w CI (shared hosting bez artisan SSH)
+          # SQLite: migracje w CI. MySQL: migracje po FTP (localhost niedostępny z CI).
           if grep -qE '^DB_CONNECTION=sqlite' .env; then
             rm -f database/database.sqlite
             touch database/database.sqlite
             php artisan migrate --force --no-interaction
             php artisan db:seed --force --no-interaction
+          fi
+
+          if grep -qE '^DB_CONNECTION=mysql' .env; then
+            echo "Produkcja MySQL — migracje zostaną uruchomione na serwerze po FTP"
           fi
 
           # Wymuszamy upload plików ignorowanych przez .gitignore
@@ -134,3 +138,49 @@ jobs:
             **/.gitignore
             **/Dane/**
             **/.ftp-deploy-sync-state.json
+
+      - name: Migracje MySQL na serwerze (one-shot)
+        if: ${{ hashFiles('.env') != '' }}
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if ! grep -qE '^DB_CONNECTION=mysql' .env; then
+            echo "Nie MySQL — pomijam migracje zdalne"
+            exit 0
+          fi
+
+          sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp
+          REMOTE_DIR="public_html/ekstraklasa/"
+          MIGRATE_TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
+          mkdir -p storage/app
+          printf '%s' "$MIGRATE_TOKEN" > storage/app/migrate.token
+          cp deployment/migrate-once.php public/__migrate_once.php
+
+          lftp -c "
+            set ssl:verify-certificate no;
+            set ftp:passive-mode true;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+            cd ${REMOTE_DIR};
+            mkdir -p storage/app;
+            put -O storage/app storage/app/migrate.token;
+            put -O public public/__migrate_once.php;
+            bye
+          "
+
+          sleep 2
+          body=$(curl -sS -w '\nHTTP:%{http_code}' \
+            "https://ekstraklasa.9liga.waw.pl/__migrate_once.php?token=${MIGRATE_TOKEN}")
+          echo "$body"
+          echo "$body" | grep -q 'MIGRATE_OK'
+
+          lftp -c "
+            set ssl:verify-certificate no;
+            set ftp:passive-mode true;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+            cd ${REMOTE_DIR};
+            rm -f public/__migrate_once.php storage/app/migrate.token;
+            bye
+          " || true

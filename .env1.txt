@@ -17,12 +17,14 @@ LOG_STACK=single
 LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=error
 
-# Shared hosting bez migracji przez SSH: sesja/cache na plikach,
-# żeby trasy web nie padały na brak tabel sessions/cache.
-DB_CONNECTION=sqlite
-# Pusta wartość → Laravel używa absolutnego database_path('database.sqlite').
-# Względna ścieżka (database/database.sqlite) pada na hostingu, bo CWD to public/.
+# Produkcja: MySQL. Pełne credentials powinny być w secrets.PRODUCTION_ENV.
+# Ten plik jest fallbackiem / szablonem — nie wymuszaj sqlite.
+DB_CONNECTION=mysql
+DB_HOST=localhost
+DB_PORT=3306
 DB_DATABASE=
+DB_USERNAME=
+DB_PASSWORD=
 
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
