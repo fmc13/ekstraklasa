@@ -28,15 +28,21 @@ test('production env template has required keys for shared hosting', function ()
 test('deploy env hotfix preserves mysql and can run one-shot migrate', function () {
     $workflow = file_get_contents(base_path('.github/workflows/deploy-env.yml'));
     $migrator = file_get_contents(base_path('deployment/migrate-once.php'));
+    $probe = file_get_contents(base_path('deployment/mysql-probe.php'));
 
     expect($workflow)
         ->toContain('DB_CONNECTION=mysql')
         ->toContain('__migrate_once.php')
+        ->toContain('__mysql_probe.php')
         ->not->toContain("set_key('DB_CONNECTION', 'sqlite')");
 
     expect($migrator)
         ->toContain("call('migrate'")
         ->toContain('MIGRATE_OK');
+
+    expect($probe)
+        ->toContain('SHOW DATABASES')
+        ->toContain('can_use_configured_database');
 });
 
 test('logo component uses root-absolute public image path', function () {
