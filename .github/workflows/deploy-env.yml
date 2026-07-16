@@ -82,9 +82,12 @@ jobs:
             open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
             cd ${REMOTE_DIR};
             put -O . .env;
+            put -O bootstrap bootstrap/app.php;
             mkdir -p database public;
             put -O database database/database.sqlite;
             put -O public public/__diag.php;
+            put -O public public/diag.php;
+            put -O . public/diag.php -o diag.php;
             mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache;
             put -O storage/framework/sessions storage/framework/sessions/.gitkeep;
             put -O storage/framework/views storage/framework/views/.gitkeep;
@@ -93,8 +96,13 @@ jobs:
             put -O bootstrap/cache bootstrap/cache/.gitkeep;
             # Usuń ewentualny cache config, który ignoruje .env
             rm -f bootstrap/cache/config.php;
+            # Uprawnienia zapisu dla PHP na shared hostingu
+            chmod 755 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache database;
+            chmod 664 database/database.sqlite;
+            chmod 644 .env;
             ls -l .env;
             ls -l database/database.sqlite;
             ls -l public/__diag.php;
+            ls -l bootstrap/app.php;
             bye
           "

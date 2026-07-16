@@ -7,6 +7,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -33,4 +34,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // Tymczasowa diagnostyka produkcji: /?_plain_error=1
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if (! $request->query->has('_plain_error')) {
+                return null;
+            }
+
+            return response(
+                get_class($e).': '.$e->getMessage()."\n".$e->getFile().':'.$e->getLine()."\n",
+                500,
+                ['Content-Type' => 'text/plain; charset=utf-8'],
+            );
+        });
     })->create();
