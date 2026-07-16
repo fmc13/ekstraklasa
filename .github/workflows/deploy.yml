@@ -98,7 +98,8 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_PATH }}
+          # Secret FTP_PATH wskazywał zły katalog (literówka). Docroot subdomeny:
+          server-dir: public_html/ekstraklasa/
           dangerous-clean-slate: false
           exclude: |
             **/.git*
