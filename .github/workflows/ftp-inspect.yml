@@ -1,6 +1,11 @@
 name: Inspect production FTP layout
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ftp-inspect.yml'
   workflow_dispatch:
 
 jobs:
