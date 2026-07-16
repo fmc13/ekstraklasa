@@ -59,7 +59,7 @@
 
     const mainNavItems: NavItem[] = [
         {
-            title: 'Dashboard',
+            title: 'Ekstraklasa',
             href: dashboard(),
             icon: LayoutGrid,
         },

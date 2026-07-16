@@ -50,6 +50,7 @@ test('dashboard includes ekstraklasa standings from the database', function () {
             ->where('league.season', 2026)
             ->has('standings', 1)
             ->where('standings.0.team_name', 'Lech Poznan')
+            ->where('standings.0.api_team_id', 347)
             ->where('standings.0.points', 0)
             ->where('standings.0.rank', 1)
         );

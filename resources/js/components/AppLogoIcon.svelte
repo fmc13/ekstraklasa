@@ -7,12 +7,12 @@
         [key: string]: unknown;
     } = $props();
 
-    const logoSrc = `${import.meta.env.BASE_URL}images/ekstraklasa-logo.png`;
+    const logoSrc = `${import.meta.env.BASE_URL}images/logo_ekstraklasa.png`;
 </script>
 
 <img
     src={logoSrc}
-    alt="PKO Bank Polski Ekstraklasa"
+    alt="BOŚ Bank Ekstraklasa"
     class="object-contain {className}"
     {...rest}
 />

@@ -36,21 +36,7 @@ class ApiFootballClient
         /** @var array{errors?: array<string, string>|list<string>, response?: list<array{league?: array{standings?: list<list<array<string, mixed>>>}}>} $payload */
         $payload = $response->json();
 
-        $errors = $payload['errors'] ?? [];
-
-        if ($errors !== [] && $errors !== null) {
-            $message = is_array($errors)
-                ? implode(' ', array_map(
-                    fn (mixed $value, string|int $key): string => is_string($key)
-                        ? "{$key}: {$value}"
-                        : (string) $value,
-                    $errors,
-                    array_keys($errors),
-                ))
-                : (string) $errors;
-
-            throw new RuntimeException("API-Football error: {$message}");
-        }
+        $this->assertNoApiErrors($payload['errors'] ?? []);
 
         $league = $payload['response'][0]['league'] ?? null;
 
@@ -80,6 +66,87 @@ class ApiFootballClient
         }
 
         return $rows;
+    }
+
+    /**
+     * @return list<array{
+     *     team: array{
+     *         id: int,
+     *         name: string,
+     *         code: string|null,
+     *         country: string|null,
+     *         founded: int|null,
+     *         national: bool,
+     *         logo: string|null
+     *     },
+     *     venue: array{
+     *         id: int|null,
+     *         name: string|null,
+     *         address: string|null,
+     *         city: string|null,
+     *         capacity: int|null,
+     *         surface: string|null,
+     *         image: string|null
+     *     }|null
+     * }>
+     */
+    public function teams(int $leagueId, int $season): array
+    {
+        $response = $this->client()
+            ->get('/teams', [
+                'league' => $leagueId,
+                'season' => $season,
+            ])
+            ->throw();
+
+        /** @var array{errors?: array<string, string>|list<string>, response?: list<array<string, mixed>>} $payload */
+        $payload = $response->json();
+
+        $this->assertNoApiErrors($payload['errors'] ?? []);
+
+        /** @var list<array{
+         *     team: array{
+         *         id: int,
+         *         name: string,
+         *         code: string|null,
+         *         country: string|null,
+         *         founded: int|null,
+         *         national: bool,
+         *         logo: string|null
+         *     },
+         *     venue: array{
+         *         id: int|null,
+         *         name: string|null,
+         *         address: string|null,
+         *         city: string|null,
+         *         capacity: int|null,
+         *         surface: string|null,
+         *         image: string|null
+         *     }|null
+         * }> $teams */
+        $teams = $payload['response'] ?? [];
+
+        return $teams;
+    }
+
+    /**
+     * @param  array<string, string>|list<string>  $errors
+     */
+    private function assertNoApiErrors(array $errors): void
+    {
+        if ($errors === []) {
+            return;
+        }
+
+        $message = implode(' ', array_map(
+            fn (mixed $value, string|int $key): string => is_string($key)
+                ? "{$key}: {$value}"
+                : (string) $value,
+            $errors,
+            array_keys($errors),
+        ));
+
+        throw new RuntimeException("API-Football error: {$message}");
     }
 
     private function client(): PendingRequest

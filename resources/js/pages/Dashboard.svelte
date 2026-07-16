@@ -4,7 +4,7 @@
     export const layout = {
         breadcrumbs: [
             {
-                title: 'Dashboard',
+                title: 'Ekstraklasa',
                 href: dashboard(),
             },
         ],
@@ -12,11 +12,15 @@
 </script>
 
 <script lang="ts">
+    import { Link } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import Heading from '@/components/Heading.svelte';
+    import { toUrl } from '@/lib/utils';
+    import { show as teamShow } from '@/routes/teams';
 
     type StandingRow = {
         id: number;
+        api_team_id: number;
         rank: number;
         team_name: string;
         team_logo: string | null;
@@ -71,12 +75,12 @@
     }
 </script>
 
-<AppHead title="Dashboard" />
+<AppHead title="Ekstraklasa" />
 
 <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-4">
     <Heading
         title="{league.name} {league.season}/{league.season + 1}"
-        description="Tabela PKO BP Ekstraklasy. Dane z API-Football (sezon bieżący); przed startem rozgrywek skład ligi z zerowymi wynikami."
+        description="Tabela BOŚ Bank Ekstraklasy. Dane z API-Football (sezon bieżący); przed startem rozgrywek skład ligi z zerowymi wynikami."
     />
 
     <div
@@ -99,10 +103,14 @@
             </thead>
             <tbody>
                 {#each standings as row (row.id)}
-                    <tr class="border-b last:border-0">
+                    <tr class="border-b last:border-0 hover:bg-muted/40">
                         <td class="px-4 py-3 font-medium tabular-nums">{row.rank}</td>
                         <td class="px-4 py-3">
-                            <div class="flex items-center gap-3">
+                            <Link
+                                href={toUrl(teamShow(row.api_team_id))}
+                                class="flex items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                prefetch
+                            >
                                 {#if row.team_logo}
                                     <img
                                         src={row.team_logo}
@@ -112,14 +120,18 @@
                                     />
                                 {/if}
                                 <div class="min-w-0">
-                                    <div class="truncate font-medium">{row.team_name}</div>
+                                    <div
+                                        class="truncate font-medium text-primary hover:underline"
+                                    >
+                                        {row.team_name}
+                                    </div>
                                     {#if row.description}
                                         <div class="truncate text-xs text-muted-foreground">
                                             {row.description}
                                         </div>
                                     {/if}
                                 </div>
-                            </div>
+                            </Link>
                         </td>
                         <td class="px-3 py-3 text-center tabular-nums">{row.played}</td>
                         <td class="px-3 py-3 text-center tabular-nums">{row.win}</td>
