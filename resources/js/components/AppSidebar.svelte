@@ -3,6 +3,7 @@
     import BookOpen from 'lucide-svelte/icons/book-open';
     import FolderGit2 from 'lucide-svelte/icons/folder-git-2';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
+    import Shield from 'lucide-svelte/icons/shield';
     import Users from 'lucide-svelte/icons/users';
     import type { Snippet } from 'svelte';
     import AppLogo from '@/components/AppLogo.svelte';
@@ -20,6 +21,7 @@
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
     import { dashboard } from '@/routes';
+    import { index as teamsIndex } from '@/routes/teams';
     import { index as usersIndex } from '@/routes/users';
     import type { NavItem } from '@/types';
 
@@ -34,6 +36,11 @@
             title: 'Ekstraklasa',
             href: dashboard(),
             icon: LayoutGrid,
+        },
+        {
+            title: 'Kluby',
+            href: teamsIndex(),
+            icon: Shield,
         },
     ];
 

@@ -10,6 +10,46 @@ use Inertia\Response;
 class TeamController extends Controller
 {
     /**
+     * Display clubs for the configured Ekstraklasa season.
+     */
+    public function index(): Response
+    {
+        $leagueId = (int) config('services.api_football.league_id');
+        $season = (int) config('services.api_football.season');
+
+        $teams = Team::query()
+            ->forLeagueSeason($leagueId, $season)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Team $team): array => [
+                'api_team_id' => $team->api_team_id,
+                'name' => $team->name,
+                'logo' => $team->logo,
+            ]);
+
+        if ($teams->isEmpty()) {
+            $teams = LeagueStanding::query()
+                ->forLeagueSeason($leagueId, $season)
+                ->orderedByRank()
+                ->get()
+                ->map(fn (LeagueStanding $standing): array => [
+                    'api_team_id' => $standing->api_team_id,
+                    'name' => $standing->team_name,
+                    'logo' => $standing->team_logo,
+                ]);
+        }
+
+        return Inertia::render('teams/Index', [
+            'teams' => $teams,
+            'league' => [
+                'id' => $leagueId,
+                'name' => 'Ekstraklasa',
+                'season' => $season,
+            ],
+        ]);
+    }
+
+    /**
      * Display team details for the configured Ekstraklasa season.
      */
     public function show(int $team): Response

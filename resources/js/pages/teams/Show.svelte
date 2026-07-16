@@ -1,15 +1,15 @@
 <script module lang="ts">
-    import { dashboard } from '@/routes';
+    import { index as teamsIndex } from '@/routes/teams';
 
     export const layout = {
         breadcrumbs: [
             {
-                title: 'Ekstraklasa',
-                href: dashboard(),
+                title: 'Kluby',
+                href: teamsIndex(),
             },
             {
                 title: 'Zespół',
-                href: dashboard(),
+                href: teamsIndex(),
             },
         ],
     };
@@ -76,8 +76,8 @@
         setLayoutProps({
             breadcrumbs: [
                 {
-                    title: 'Ekstraklasa',
-                    href: dashboard(),
+                    title: 'Kluby',
+                    href: teamsIndex(),
                 },
                 {
                     title: team.name,
@@ -150,10 +150,10 @@
             />
         </div>
         <Link
-            href={toUrl(dashboard())}
+            href={toUrl(teamsIndex())}
             class="text-sm font-medium text-primary hover:underline"
         >
-            ← Wróć do tabeli
+            ← Wróć do klubów
         </Link>
     </div>
 

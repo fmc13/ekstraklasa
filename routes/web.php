@@ -9,6 +9,7 @@ Route::inertia('/', 'Welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('teams', [TeamController::class, 'index'])->name('teams.index');
     Route::get('teams/{team}', [TeamController::class, 'show'])
         ->whereNumber('team')
         ->name('teams.show');
