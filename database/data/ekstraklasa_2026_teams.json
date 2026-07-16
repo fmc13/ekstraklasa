@@ -1,0 +1,92 @@
+[
+    {
+        "api_team_id": 350,
+        "team_name": "Cracovia Krakow",
+        "team_logo": "https://media.api-sports.io/football/teams/350.png"
+    },
+    {
+        "api_team_id": 3484,
+        "team_name": "GKS Katowice",
+        "team_logo": "https://media.api-sports.io/football/teams/3484.png"
+    },
+    {
+        "api_team_id": 340,
+        "team_name": "Gornik Zabrze",
+        "team_logo": "https://media.api-sports.io/football/teams/340.png"
+    },
+    {
+        "api_team_id": 336,
+        "team_name": "Jagiellonia",
+        "team_logo": "https://media.api-sports.io/football/teams/336.png"
+    },
+    {
+        "api_team_id": 346,
+        "team_name": "Korona Kielce",
+        "team_logo": "https://media.api-sports.io/football/teams/346.png"
+    },
+    {
+        "api_team_id": 347,
+        "team_name": "Lech Poznan",
+        "team_logo": "https://media.api-sports.io/football/teams/347.png"
+    },
+    {
+        "api_team_id": 339,
+        "team_name": "Legia Warszawa",
+        "team_logo": "https://media.api-sports.io/football/teams/339.png"
+    },
+    {
+        "api_team_id": 14562,
+        "team_name": "Motor Lublin",
+        "team_logo": "https://media.api-sports.io/football/teams/14562.png"
+    },
+    {
+        "api_team_id": 349,
+        "team_name": "Piast Gliwice",
+        "team_logo": "https://media.api-sports.io/football/teams/349.png"
+    },
+    {
+        "api_team_id": 348,
+        "team_name": "Pogon Szczecin",
+        "team_logo": "https://media.api-sports.io/football/teams/348.png"
+    },
+    {
+        "api_team_id": 4248,
+        "team_name": "Radomiak Radom",
+        "team_logo": "https://media.api-sports.io/football/teams/4248.png"
+    },
+    {
+        "api_team_id": 3491,
+        "team_name": "Raków Częstochowa",
+        "team_logo": "https://media.api-sports.io/football/teams/3491.png"
+    },
+    {
+        "api_team_id": 337,
+        "team_name": "Slask Wroclaw",
+        "team_logo": "https://media.api-sports.io/football/teams/337.png"
+    },
+    {
+        "api_team_id": 6962,
+        "team_name": "Widzew Łódź",
+        "team_logo": "https://media.api-sports.io/football/teams/6962.png"
+    },
+    {
+        "api_team_id": 17115,
+        "team_name": "Wieczysta Kraków",
+        "team_logo": "https://media.api-sports.io/football/teams/17115.png"
+    },
+    {
+        "api_team_id": 338,
+        "team_name": "Wisla Krakow",
+        "team_logo": "https://media.api-sports.io/football/teams/338.png"
+    },
+    {
+        "api_team_id": 341,
+        "team_name": "Wisla Plock",
+        "team_logo": "https://media.api-sports.io/football/teams/341.png"
+    },
+    {
+        "api_team_id": 345,
+        "team_name": "Zaglebie Lubin",
+        "team_logo": "https://media.api-sports.io/football/teams/345.png"
+    }
+]
