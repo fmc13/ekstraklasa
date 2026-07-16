@@ -1,7 +1,7 @@
 APP_NAME=Ekstraklasa
 APP_ENV=production
 APP_KEY=base64:07IufnhJALZh+Ay42Erv+rOttcFZR3eCAFCxDmqNu2g=
-APP_DEBUG=true
+APP_DEBUG=false
 APP_URL=https://ekstraklasa.9liga.waw.pl
 
 APP_LOCALE=pl

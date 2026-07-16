@@ -70,7 +70,7 @@ jobs:
                   order.append(('kv', key))
 
           set_key('APP_ENV', 'production')
-          set_key('APP_DEBUG', 'true')  # tymczasowo do weryfikacji
+          set_key('APP_DEBUG', 'false')
           set_key('APP_URL', 'https://ekstraklasa.9liga.waw.pl')
           set_key('SESSION_DRIVER', 'file')
           set_key('CACHE_STORE', 'file')
@@ -108,9 +108,8 @@ jobs:
             put -O storage/framework/cache/data storage/framework/cache/data/.gitkeep;
             put -O storage/logs storage/logs/.gitkeep;
             put -O bootstrap/cache bootstrap/cache/.gitkeep;
-            rm -f public/index.php;
+            rm -f public/index.php public/diag.php public/__diag.php;
             put -O public public/index.php;
-            put -O public public/diag.php;
             rm -f bootstrap/cache/config.php;
             chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache;
             ls -l .env;
@@ -129,24 +128,6 @@ jobs:
 
           sleep 2
           echo "=== HTTP ==="
-          curl -sS -o /tmp/boot.txt -w 'boot:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/?_boot_info=1' || true
-          echo '--- boot body ---'
-          cat /tmp/boot.txt; echo
-          curl -sS -o /tmp/home.html -w 'home:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/' || true
-          curl -sS -o /tmp/plain.txt -w 'plain:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/?_plain_error=1' || true
-          echo '--- plain body ---'
-          head -c 1200 /tmp/plain.txt; echo
-
-          lftp -c "
-            set ssl:verify-certificate no;
-            set ftp:passive-mode true;
-            open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
-            cd ${REMOTE_DIR};
-            cls -l storage/logs/;
-            get storage/logs/laravel.log -o /tmp/laravel.log || echo NO_LOG;
-            bye
-          "
-          if [ -f /tmp/laravel.log ]; then
-            echo "=== laravel.log ==="
-            tail -n 120 /tmp/laravel.log
-          fi
+          curl -sS -o /dev/null -w 'home:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/'
+          curl -sS -o /dev/null -w 'login:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/login'
+          curl -sS -o /dev/null -w 'up:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/up'
