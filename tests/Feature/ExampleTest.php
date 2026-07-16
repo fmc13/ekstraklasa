@@ -49,7 +49,7 @@ test('logo component uses root-absolute public image path', function () {
     $source = file_get_contents(resource_path('js/components/AppLogoIcon.svelte'));
 
     expect($source)
-        ->toContain("'/images/ekstraklasa-logo.png'")
+        ->toContain("'/images/logo_ekstraklasa.png'")
         ->not->toContain('import.meta.env.BASE_URL');
 });
 
@@ -77,4 +77,13 @@ test('database config resolves relative sqlite paths from the project root', fun
     expect($source)
         ->toContain('base_path($path)')
         ->toContain("env('DB_DATABASE') ?: database_path('database.sqlite')");
+});
+
+test('home page uses the ekstraklasa brand logo as favicon', function () {
+    $this->withoutVite();
+
+    $response = $this->get(route('home'));
+
+    $response->assertOk();
+    $response->assertSee(asset('images/logo_ekstraklasa.png'), false);
 });

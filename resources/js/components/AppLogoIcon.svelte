@@ -8,12 +8,12 @@
     } = $props();
 
     // Plik leży w public/images — zawsze od roota domeny (nie od Vite base / subdirectory).
-    const logoSrc = '/images/ekstraklasa-logo.png';
+    const logoSrc = '/images/logo_ekstraklasa.png';
 </script>
 
 <img
     src={logoSrc}
-    alt="PKO Bank Polski Ekstraklasa"
+    alt="BOŚ Bank Ekstraklasa"
     class="object-contain {className}"
     {...rest}
 />

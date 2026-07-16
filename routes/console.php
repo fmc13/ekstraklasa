@@ -9,5 +9,13 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('football:sync-standings')
-    ->hourly()
+    ->dailyAt('23:00')
+    ->withoutOverlapping();
+
+Schedule::command('football:sync-teams')
+    ->dailyAt('23:00')
+    ->withoutOverlapping();
+
+Schedule::command('football:sync-squads')
+    ->weeklyOn(3, '23:00')
     ->withoutOverlapping();

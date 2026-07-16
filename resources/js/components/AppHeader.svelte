@@ -5,6 +5,7 @@
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Menu from 'lucide-svelte/icons/menu';
     import Search from 'lucide-svelte/icons/search';
+    import Shield from 'lucide-svelte/icons/shield';
     import AppLogo from '@/components/AppLogo.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import Breadcrumbs from '@/components/Breadcrumbs.svelte';
@@ -43,6 +44,7 @@
     import { getInitials } from '@/lib/initials';
     import { toUrl } from '@/lib/utils';
     import { dashboard } from '@/routes';
+    import { index as teamsIndex } from '@/routes/teams';
     import type { BreadcrumbItem, NavItem } from '@/types';
 
     let {
@@ -59,9 +61,14 @@
 
     const mainNavItems: NavItem[] = [
         {
-            title: 'Dashboard',
+            title: 'Ekstraklasa',
             href: dashboard(),
             icon: LayoutGrid,
+        },
+        {
+            title: 'Kluby',
+            href: teamsIndex(),
+            icon: Shield,
         },
     ];
 

@@ -26,7 +26,7 @@
             <AppLogoIcon class="h-12 w-auto max-w-[280px]" />
         </Link>
         <div class="relative z-20 mt-auto">
-            <p class="text-lg font-medium">PKO Bank Polski Ekstraklasa</p>
+            <p class="text-lg font-medium">BOŚ Bank Ekstraklasa</p>
             <p class="mt-2 text-sm text-primary-foreground/80">
                 Oficjalna liga piłkarska.
             </p>

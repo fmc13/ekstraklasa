@@ -24,7 +24,7 @@
                         href={toUrl(dashboard())}
                         class="inline-block rounded-md border border-black/15 bg-primary px-5 py-1.5 text-sm leading-normal text-white hover:bg-primary/90 dark:border-white/20"
                     >
-                        Dashboard
+                        Ekstraklasa
                     </Link>
                 {:else}
                     <Link
@@ -50,7 +50,7 @@
                 <p
                     class="mb-3 text-xs font-semibold tracking-[0.2em] text-primary uppercase"
                 >
-                    PKO Bank Polski
+                    BOŚ Bank
                 </p>
                 <h1 class="mb-3 text-3xl font-bold tracking-tight text-black lg:text-4xl dark:text-white">
                     Ekstraklasa
@@ -64,7 +64,7 @@
                         href={toUrl(dashboard())}
                         class="inline-flex w-fit items-center rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary/90"
                     >
-                        Przejdź do panelu
+                        Przejdź do Ekstraklasy
                     </Link>
                 {:else}
                     <Link

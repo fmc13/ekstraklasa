@@ -22,6 +22,7 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (LeagueStanding $standing): array => [
                 'id' => $standing->id,
+                'api_team_id' => $standing->api_team_id,
                 'rank' => $standing->rank,
                 'team_name' => $standing->team_name,
                 'team_logo' => $standing->team_logo,
