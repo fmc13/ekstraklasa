@@ -42,13 +42,18 @@ jobs:
           cp .env.example .env
           php artisan key:generate --force --no-interaction
           sed -i 's|^APP_URL=.*|APP_URL=https://ekstraklasa.9liga.waw.pl|' .env
-          printf '\nVITE_BASE=/\n' >> .env
+          printf '\nVITE_BASE=/build/\n' >> .env
           grep -E '^APP_URL=|^VITE_BASE=' .env
           php artisan wayfinder:generate --with-form --no-interaction
           npm run build
           if grep -R -E -q 'localhost/ekstraklasa|/ekstraklasa/public/' public/build; then
             echo "Build zawiera lokalne ścieżki" >&2
             grep -R -n -E 'localhost/ekstraklasa|/ekstraklasa/public/' public/build | head -20 >&2
+            exit 1
+          fi
+          if grep -R -E -q 'url\("/assets/' public/build; then
+            echo "Build ma fonty pod /assets/ zamiast /build/assets/" >&2
+            grep -R -n -E 'url\("/assets/' public/build | head -20 >&2
             exit 1
           fi
 
@@ -84,14 +89,38 @@ jobs:
           curl -sS -o /dev/null -w 'home:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/'
           # Nowe assety nie powinny wskazywać na /ekstraklasa/public/
           html=$(curl -sS 'https://ekstraklasa.9liga.waw.pl/')
-          if echo "$html" | rg -q '/ekstraklasa/public/'; then
+          if echo "$html" | grep -q '/ekstraklasa/public/'; then
             echo "HTML nadal zawiera /ekstraklasa/public/" >&2
-            echo "$html" | rg -n '/ekstraklasa/public/' | head -10 >&2
+            echo "$html" | grep -n '/ekstraklasa/public/' | head -10 >&2
             exit 1
           fi
-          routes_js=$(echo "$html" | rg -o '/build/assets/routes-[^"]+\.js' | head -1)
+          routes_js=$(echo "$html" | grep -oE '/build/assets/routes-[^"]+\.js' | head -1)
           echo "routes bundle: $routes_js"
-          curl -sS "https://ekstraklasa.9liga.waw.pl${routes_js}" | rg -q 'localhost/ekstraklasa' && {
+          if curl -sS "https://ekstraklasa.9liga.waw.pl${routes_js}" | grep -q 'localhost/ekstraklasa'; then
             echo "routes JS nadal ma localhost" >&2
             exit 1
-          } || echo "routes JS OK"
+          fi
+          echo "routes JS OK"
+          fonts_css=$(curl -sS 'https://ekstraklasa.9liga.waw.pl/build/manifest.json' | python3 -c 'import json,sys; m=json.load(sys.stdin); print(next((v["file"] for k,v in m.items() if isinstance(v,dict) and str(v.get("file","")).startswith("assets/fonts-")), ""))')
+          echo "fonts css: $fonts_css"
+          if [ -z "$fonts_css" ]; then
+            echo "Brak fonts-*.css w manifescie" >&2
+            exit 1
+          fi
+          fonts_body=$(curl -sS "https://ekstraklasa.9liga.waw.pl/build/${fonts_css}")
+          if echo "$fonts_body" | grep -q 'url("/assets/'; then
+            echo "Live fonts CSS nadal ma /assets/ bez /build/" >&2
+            echo "$fonts_body" | head -20 >&2
+            exit 1
+          fi
+          if ! echo "$fonts_body" | grep -q 'url("/build/assets/'; then
+            echo "Live fonts CSS nie zawiera /build/assets/" >&2
+            echo "$fonts_body" | head -20 >&2
+            exit 1
+          fi
+          font_url=$(echo "$fonts_body" | grep -oE '/build/assets/[^"]+\.woff2' | head -1)
+          curl -sS -o /dev/null -w "font:%{http_code} %{url_effective}\n" "https://ekstraklasa.9liga.waw.pl${font_url}" | tee /tmp/font-check.txt
+          grep -q 'font:200 ' /tmp/font-check.txt
+          curl -sS -o /dev/null -w "logo:%{http_code}\n" 'https://ekstraklasa.9liga.waw.pl/images/ekstraklasa-logo.png' | tee /tmp/logo-check.txt
+          grep -q 'logo:200' /tmp/logo-check.txt
+          echo "fonts + logo OK"
