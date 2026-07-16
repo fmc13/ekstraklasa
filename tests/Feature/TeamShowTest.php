@@ -2,6 +2,8 @@
 
 use App\Models\LeagueStanding;
 use App\Models\Team;
+use App\Models\TeamCoach;
+use App\Models\TeamPlayer;
 use App\Models\User;
 
 test('guests are redirected to the login page', function () {
@@ -39,6 +41,27 @@ test('authenticated users can view a team page', function () {
         'played' => 5,
     ]);
 
+    TeamPlayer::factory()->create([
+        'league_id' => 106,
+        'season' => 2026,
+        'api_team_id' => 347,
+        'api_player_id' => 1001,
+        'name' => 'Mikael Ishak',
+        'number' => 9,
+        'position' => 'Attacker',
+        'age' => 31,
+    ]);
+
+    TeamCoach::factory()->create([
+        'league_id' => 106,
+        'season' => 2026,
+        'api_team_id' => 347,
+        'api_coach_id' => 501,
+        'name' => 'Niels Frederiksen',
+        'nationality' => 'Denmark',
+        'age' => 53,
+    ]);
+
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -53,6 +76,10 @@ test('authenticated users can view a team page', function () {
             ->where('standing.rank', 1)
             ->where('standing.points', 12)
             ->where('league.season', 2026)
+            ->has('players', 1)
+            ->where('players.0.name', 'Mikael Ishak')
+            ->has('coaches', 1)
+            ->where('coaches.0.name', 'Niels Frederiksen')
         );
 });
 

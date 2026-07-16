@@ -130,6 +130,82 @@ class ApiFootballClient
     }
 
     /**
+     * @return list<array{
+     *     id: int,
+     *     name: string,
+     *     age: int|null,
+     *     number: int|null,
+     *     position: string|null,
+     *     photo: string|null
+     * }>
+     */
+    public function squad(int $teamId): array
+    {
+        $response = $this->client()
+            ->get('/players/squads', [
+                'team' => $teamId,
+            ])
+            ->throw();
+
+        /** @var array{errors?: array<string, string>|list<string>, response?: list<array{players?: list<array<string, mixed>>}>} $payload */
+        $payload = $response->json();
+
+        $this->assertNoApiErrors($payload['errors'] ?? []);
+
+        /** @var list<array{
+         *     id: int,
+         *     name: string,
+         *     age: int|null,
+         *     number: int|null,
+         *     position: string|null,
+         *     photo: string|null
+         * }> $players */
+        $players = $payload['response'][0]['players'] ?? [];
+
+        return $players;
+    }
+
+    /**
+     * @return list<array{
+     *     id: int,
+     *     name: string,
+     *     firstname: string|null,
+     *     lastname: string|null,
+     *     age: int|null,
+     *     nationality: string|null,
+     *     photo: string|null,
+     *     career: list<array<string, mixed>>|null
+     * }>
+     */
+    public function coaches(int $teamId): array
+    {
+        $response = $this->client()
+            ->get('/coachs', [
+                'team' => $teamId,
+            ])
+            ->throw();
+
+        /** @var array{errors?: array<string, string>|list<string>, response?: list<array<string, mixed>>} $payload */
+        $payload = $response->json();
+
+        $this->assertNoApiErrors($payload['errors'] ?? []);
+
+        /** @var list<array{
+         *     id: int,
+         *     name: string,
+         *     firstname: string|null,
+         *     lastname: string|null,
+         *     age: int|null,
+         *     nationality: string|null,
+         *     photo: string|null,
+         *     career: list<array<string, mixed>>|null
+         * }> $coaches */
+        $coaches = $payload['response'] ?? [];
+
+        return $coaches;
+    }
+
+    /**
      * @param  array<string, string>|list<string>  $errors
      */
     private function assertNoApiErrors(array $errors): void

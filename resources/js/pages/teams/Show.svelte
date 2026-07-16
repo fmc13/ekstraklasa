@@ -56,6 +56,25 @@
         description: string | null;
     };
 
+    type PlayerInfo = {
+        api_player_id: number;
+        name: string;
+        age: number | null;
+        number: number | null;
+        position: string | null;
+        photo: string | null;
+    };
+
+    type CoachInfo = {
+        api_coach_id: number;
+        name: string;
+        firstname: string | null;
+        lastname: string | null;
+        age: number | null;
+        nationality: string | null;
+        photo: string | null;
+    };
+
     type LeagueInfo = {
         id: number;
         name: string;
@@ -65,10 +84,14 @@
     let {
         team,
         standing = null,
+        players = [],
+        coaches = [],
         league,
     }: {
         team: TeamInfo;
         standing?: StandingInfo | null;
+        players?: PlayerInfo[];
+        coaches?: CoachInfo[];
         league: LeagueInfo;
     } = $props();
 
@@ -128,6 +151,21 @@
         }
 
         return value.toLocaleString('pl-PL');
+    }
+
+    function positionLabel(position: string | null): string {
+        switch (position) {
+            case 'Goalkeeper':
+                return 'Bramkarz';
+            case 'Defender':
+                return 'Obrońca';
+            case 'Midfielder':
+                return 'Pomocnik';
+            case 'Attacker':
+                return 'Napastnik';
+            default:
+                return position ?? '—';
+        }
     }
 </script>
 
@@ -268,4 +306,104 @@
             </div>
         </section>
     {/if}
+
+    <section class="space-y-4">
+        <h2 class="text-lg font-semibold tracking-tight">Sztab szkoleniowy</h2>
+        {#if coaches.length > 0}
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {#each coaches as coach (coach.api_coach_id)}
+                    <div
+                        class="flex items-center gap-3 rounded-xl border border-sidebar-border/70 p-3 dark:border-sidebar-border"
+                    >
+                        {#if coach.photo}
+                            <img
+                                src={coach.photo}
+                                alt=""
+                                class="size-12 rounded-full object-cover"
+                                loading="lazy"
+                            />
+                        {:else}
+                            <span
+                                class="flex size-12 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground"
+                            >
+                                {coach.name.slice(0, 1)}
+                            </span>
+                        {/if}
+                        <div class="min-w-0">
+                            <div class="truncate font-medium">{coach.name}</div>
+                            <div class="text-xs text-muted-foreground">
+                                Trener
+                                {#if coach.nationality}
+                                    · {coach.nationality}
+                                {/if}
+                                {#if coach.age}
+                                    · {coach.age} lat
+                                {/if}
+                            </div>
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {:else}
+            <p class="text-sm text-muted-foreground">
+                Brak danych o trenerze. Uruchom synchronizację:
+                <code class="mx-1 rounded bg-muted px-1.5 py-0.5 text-xs"
+                    >php artisan football:sync-squads</code
+                >
+            </p>
+        {/if}
+    </section>
+
+    <section class="space-y-4">
+        <h2 class="text-lg font-semibold tracking-tight">Skład</h2>
+        {#if players.length > 0}
+            <div class="overflow-x-auto rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
+                <table class="w-full min-w-[560px] text-left text-sm">
+                    <thead class="border-b bg-muted/50 text-muted-foreground">
+                        <tr>
+                            <th class="px-4 py-3 font-medium">#</th>
+                            <th class="px-4 py-3 font-medium">Zawodnik</th>
+                            <th class="px-4 py-3 font-medium">Pozycja</th>
+                            <th class="px-4 py-3 text-center font-medium">Wiek</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each players as player (player.api_player_id)}
+                            <tr class="border-b last:border-0">
+                                <td class="px-4 py-3 tabular-nums text-muted-foreground">
+                                    {player.number ?? '—'}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        {#if player.photo}
+                                            <img
+                                                src={player.photo}
+                                                alt=""
+                                                class="size-8 rounded-full object-cover"
+                                                loading="lazy"
+                                            />
+                                        {/if}
+                                        <span class="font-medium">{player.name}</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {positionLabel(player.position)}
+                                </td>
+                                <td class="px-4 py-3 text-center tabular-nums">
+                                    {player.age ?? '—'}
+                                </td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+            </div>
+        {:else}
+            <p class="text-sm text-muted-foreground">
+                Brak danych o składzie. Uruchom synchronizację:
+                <code class="mx-1 rounded bg-muted px-1.5 py-0.5 text-xs"
+                    >php artisan football:sync-squads</code
+                >
+            </p>
+        {/if}
+    </section>
 </div>

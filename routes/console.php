@@ -15,3 +15,7 @@ Schedule::command('football:sync-standings')
 Schedule::command('football:sync-teams')
     ->dailyAt('23:00')
     ->withoutOverlapping();
+
+Schedule::command('football:sync-squads')
+    ->weeklyOn(3, '23:00')
+    ->withoutOverlapping();

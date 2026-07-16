@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\LeagueStanding;
 use App\Models\Team;
+use App\Models\TeamCoach;
+use App\Models\TeamPlayer;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -71,6 +73,35 @@ class TeamController extends Controller
             abort(404);
         }
 
+        $players = TeamPlayer::query()
+            ->forTeamSeason($leagueId, $season, $team)
+            ->orderByRaw("CASE position WHEN 'Goalkeeper' THEN 1 WHEN 'Defender' THEN 2 WHEN 'Midfielder' THEN 3 WHEN 'Attacker' THEN 4 ELSE 5 END")
+            ->orderBy('number')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (TeamPlayer $player): array => [
+                'api_player_id' => $player->api_player_id,
+                'name' => $player->name,
+                'age' => $player->age,
+                'number' => $player->number,
+                'position' => $player->position,
+                'photo' => $player->photo,
+            ]);
+
+        $coaches = TeamCoach::query()
+            ->forTeamSeason($leagueId, $season, $team)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (TeamCoach $coach): array => [
+                'api_coach_id' => $coach->api_coach_id,
+                'name' => $coach->name,
+                'firstname' => $coach->firstname,
+                'lastname' => $coach->lastname,
+                'age' => $coach->age,
+                'nationality' => $coach->nationality,
+                'photo' => $coach->photo,
+            ]);
+
         return Inertia::render('teams/Show', [
             'team' => [
                 'api_team_id' => $team,
@@ -102,6 +133,8 @@ class TeamController extends Controller
                 'form' => $standing->form,
                 'description' => $standing->description,
             ],
+            'players' => $players,
+            'coaches' => $coaches,
             'league' => [
                 'id' => $leagueId,
                 'name' => 'Ekstraklasa',
