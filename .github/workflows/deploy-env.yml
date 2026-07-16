@@ -75,6 +75,10 @@ jobs:
           set_key('SESSION_DRIVER', 'file')
           set_key('CACHE_STORE', 'file')
           set_key('QUEUE_CONNECTION', 'sync')
+          set_key('DB_CONNECTION', 'sqlite')
+          # Względna ścieżka SQLite + CWD=public/ → 500 przy logowaniu
+          if kv.get('DB_DATABASE', '') in ('database/database.sqlite', 'database.sqlite'):
+              set_key('DB_DATABASE', '')
           if not kv.get('APP_KEY', '').startswith('base64:'):
               import base64, os
               set_key('APP_KEY', 'base64:' + base64.b64encode(os.urandom(32)).decode())
@@ -102,7 +106,8 @@ jobs:
             cd ${REMOTE_DIR};
             put -O . .env;
             put -O bootstrap bootstrap/app.php;
-            mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache;
+            put -O config config/database.php;
+            mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache database;
             put -O storage/framework/sessions storage/framework/sessions/.gitkeep;
             put -O storage/framework/views storage/framework/views/.gitkeep;
             put -O storage/framework/cache/data storage/framework/cache/data/.gitkeep;
@@ -111,8 +116,11 @@ jobs:
             rm -f public/index.php public/diag.php public/__diag.php;
             put -O public public/index.php;
             rm -f bootstrap/cache/config.php;
-            chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache;
+            chmod 777 storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/cache/data storage/logs bootstrap/cache database;
+            chmod 666 database/database.sqlite || true;
             ls -l .env;
+            ls -l config/database.php;
+            ls -l database/database.sqlite || echo 'MISSING database.sqlite';
             ls -l public/index.php;
             bye
           "
@@ -131,3 +139,34 @@ jobs:
           curl -sS -o /dev/null -w 'home:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/'
           curl -sS -o /dev/null -w 'login:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/login'
           curl -sS -o /dev/null -w 'up:%{http_code}\n' 'https://ekstraklasa.9liga.waw.pl/up'
+
+          echo "=== POST /login (expect not 500) ==="
+          rm -f /tmp/cj
+          curl -sS -c /tmp/cj -b /tmp/cj -o /tmp/login-get.html -w 'GET:%{http_code}\n' \
+            'https://ekstraklasa.9liga.waw.pl/login'
+          XSRF=$(awk '$6=="XSRF-TOKEN"{print $7}' /tmp/cj | python3 -c 'import sys,urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))')
+          code=$(curl -sS -c /tmp/cj -b /tmp/cj -o /tmp/login-post.html -w '%{http_code}' \
+            -X POST 'https://ekstraklasa.9liga.waw.pl/login' \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Accept: text/html,application/xhtml+xml" \
+            -H "X-XSRF-TOKEN: $XSRF" \
+            -H "X-Requested-With: XMLHttpRequest" \
+            --data-urlencode "email=nobody@example.com" \
+            --data-urlencode "password=wrong-password")
+          echo "POST login:$code"
+          if [ "$code" = "500" ]; then
+            echo "Login nadal zwraca 500" >&2
+            head -c 1500 /tmp/login-post.html >&2 || true
+            # dociągnij log
+            lftp -c "
+              set ssl:verify-certificate no;
+              set ftp:passive-mode true;
+              open -u ${FTP_USERNAME},${FTP_PASSWORD} ${FTP_SERVER};
+              cd ${REMOTE_DIR};
+              get storage/logs/laravel.log -o /tmp/laravel.log || true;
+              bye
+            "
+            tail -n 80 /tmp/laravel.log >&2 || true
+            exit 1
+          fi
+          echo "Login POST OK (nie 500)"

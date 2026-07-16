@@ -35,7 +35,24 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            // Relative DB_DATABASE (e.g. database/database.sqlite) must be resolved from
+            // the project root — on shared hosting the PHP CWD is often `public/`.
+            'database' => (static function (): string {
+                $path = env('DB_DATABASE') ?: database_path('database.sqlite');
+
+                if ($path === ':memory:') {
+                    return $path;
+                }
+
+                if (
+                    ! str_starts_with($path, DIRECTORY_SEPARATOR)
+                    && ! preg_match('/^[A-Za-z]:[\\\\\\/]/', $path)
+                ) {
+                    return base_path($path);
+                }
+
+                return $path;
+            })(),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,

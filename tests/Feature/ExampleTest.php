@@ -39,3 +39,20 @@ test('vite config defaults asset base to /build/ for font urls', function () {
         ->toContain('/build/')
         ->not->toContain("let base = '/'");
 });
+
+test('sqlite connection uses an absolute database path', function () {
+    $path = config('database.connections.sqlite.database');
+
+    expect($path)
+        ->not->toBeEmpty()
+        ->not->toStartWith('database/')
+        ->and(str_starts_with($path, base_path()) || $path === ':memory:')->toBeTrue();
+});
+
+test('database config resolves relative sqlite paths from the project root', function () {
+    $source = file_get_contents(config_path('database.php'));
+
+    expect($source)
+        ->toContain('base_path($path)')
+        ->toContain("env('DB_DATABASE') ?: database_path('database.sqlite')");
+});

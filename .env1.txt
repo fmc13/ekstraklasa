@@ -20,7 +20,9 @@ LOG_LEVEL=error
 # Shared hosting bez migracji przez SSH: sesja/cache na plikach,
 # żeby trasy web nie padały na brak tabel sessions/cache.
 DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
+# Pusta wartość → Laravel używa absolutnego database_path('database.sqlite').
+# Względna ścieżka (database/database.sqlite) pada na hostingu, bo CWD to public/.
+DB_DATABASE=
 
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
