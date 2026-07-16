@@ -22,3 +22,11 @@ test('production env template has required keys for shared hosting', function ()
         ->toContain('SESSION_DRIVER=file')
         ->toContain('CACHE_STORE=file');
 });
+
+test('logo component uses root-absolute public image path', function () {
+    $source = file_get_contents(resource_path('js/components/AppLogoIcon.svelte'));
+
+    expect($source)
+        ->toContain("'/images/ekstraklasa-logo.png'")
+        ->not->toContain('import.meta.env.BASE_URL');
+});
