@@ -16,6 +16,18 @@ Schedule::command('football:sync-teams')
     ->dailyAt('23:00')
     ->withoutOverlapping();
 
+Schedule::command('football:sync-fixtures')
+    ->dailyAt('23:00')
+    ->withoutOverlapping();
+
+Schedule::command('gol24:sync-fixtures')
+    ->dailyAt('06:00')
+    ->withoutOverlapping();
+
+Schedule::command('gol24:sync-fixtures')
+    ->dailyAt('18:00')
+    ->withoutOverlapping();
+
 Schedule::command('football:sync-squads')
     ->weeklyOn(3, '23:00')
     ->withoutOverlapping();

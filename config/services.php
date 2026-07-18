@@ -42,4 +42,8 @@ return [
         'season' => env('API_FOOTBALL_SEASON', 2026),
     ],
 
+    'gol24' => [
+        'terminarz_url' => env('GOL24_TERMINARZ_URL', 'https://gol24.pl/ekstraklasa/terminarz/'),
+    ],
+
 ];

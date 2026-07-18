@@ -206,6 +206,56 @@ class ApiFootballClient
     }
 
     /**
+     * @return list<array{
+     *     fixture: array{
+     *         id: int,
+     *         date: string|null,
+     *         status: array{long: string|null, short: string|null},
+     *         venue: array{name: string|null, city: string|null}|null
+     *     },
+     *     league: array{id: int, season: int, round: string|null},
+     *     teams: array{
+     *         home: array{id: int, name: string, logo: string|null},
+     *         away: array{id: int, name: string, logo: string|null}
+     *     },
+     *     goals: array{home: int|null, away: int|null}
+     * }>
+     */
+    public function fixtures(int $leagueId, int $season): array
+    {
+        $response = $this->client()
+            ->get('/fixtures', [
+                'league' => $leagueId,
+                'season' => $season,
+                'timezone' => 'Europe/Warsaw',
+            ])
+            ->throw();
+
+        /** @var array{errors?: array<string, string>|list<string>, response?: list<array<string, mixed>>} $payload */
+        $payload = $response->json();
+
+        $this->assertNoApiErrors($payload['errors'] ?? []);
+
+        /** @var list<array{
+         *     fixture: array{
+         *         id: int,
+         *         date: string|null,
+         *         status: array{long: string|null, short: string|null},
+         *         venue: array{name: string|null, city: string|null}|null
+         *     },
+         *     league: array{id: int, season: int, round: string|null},
+         *     teams: array{
+         *         home: array{id: int, name: string, logo: string|null},
+         *         away: array{id: int, name: string, logo: string|null}
+         *     },
+         *     goals: array{home: int|null, away: int|null}
+         * }> $fixtures */
+        $fixtures = $payload['response'] ?? [];
+
+        return $fixtures;
+    }
+
+    /**
      * @param  array<string, string>|list<string>  $errors
      */
     private function assertNoApiErrors(array $errors): void

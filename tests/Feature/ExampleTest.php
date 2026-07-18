@@ -1,11 +1,21 @@
 <?php
 
+use App\Models\User;
+
 test('returns a successful response', function () {
     $this->withoutVite();
 
     $response = $this->get(route('home'));
 
-    $response->assertOk();
+    $response->assertRedirect(route('login'));
+});
+
+test('authenticated users are redirected from home to the dashboard', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('home'))
+        ->assertRedirect(route('dashboard'));
 });
 
 test('production env template has required keys for shared hosting', function () {
@@ -45,12 +55,13 @@ test('deploy env hotfix preserves mysql and can run one-shot migrate', function 
         ->toContain('can_use_configured_database');
 });
 
-test('logo component uses root-absolute public image path', function () {
+test('logo component uses public image path derived from vite base', function () {
     $source = file_get_contents(resource_path('js/components/AppLogoIcon.svelte'));
 
     expect($source)
-        ->toContain("'/images/logo_ekstraklasa.png'")
-        ->not->toContain('import.meta.env.BASE_URL');
+        ->toContain('import.meta.env.BASE_URL')
+        ->toContain('images/logo_ekstraklasa.png')
+        ->not->toContain("'/images/logo_ekstraklasa.png'");
 });
 
 test('vite config defaults asset base to /build/ for font urls', function () {
@@ -82,7 +93,7 @@ test('database config resolves relative sqlite paths from the project root', fun
 test('home page uses the ekstraklasa brand logo as favicon', function () {
     $this->withoutVite();
 
-    $response = $this->get(route('home'));
+    $response = $this->get(route('login'));
 
     $response->assertOk();
     $response->assertSee(asset('images/logo_ekstraklasa.png'), false);

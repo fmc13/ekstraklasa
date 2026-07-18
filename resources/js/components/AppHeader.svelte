@@ -1,11 +1,13 @@
 <script lang="ts">
     import { Link, page } from '@inertiajs/svelte';
-    import BookOpen from 'lucide-svelte/icons/book-open';
-    import Folder from 'lucide-svelte/icons/folder';
+    import CalendarDays from 'lucide-svelte/icons/calendar-days';
+    import Dices from 'lucide-svelte/icons/dices';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Menu from 'lucide-svelte/icons/menu';
     import Search from 'lucide-svelte/icons/search';
     import Shield from 'lucide-svelte/icons/shield';
+    import Table2 from 'lucide-svelte/icons/table-2';
+    import Trophy from 'lucide-svelte/icons/trophy';
     import AppLogo from '@/components/AppLogo.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import Breadcrumbs from '@/components/Breadcrumbs.svelte';
@@ -33,18 +35,15 @@
         SheetTitle,
         SheetTrigger,
     } from '@/components/ui/sheet';
-    import {
-        Tooltip,
-        TooltipContent,
-        TooltipProvider,
-        TooltipTrigger,
-    } from '@/components/ui/tooltip';
     import UserMenuContent from '@/components/UserMenuContent.svelte';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
     import { getInitials } from '@/lib/initials';
     import { toUrl } from '@/lib/utils';
     import { dashboard } from '@/routes';
+    import { index as matchesIndex } from '@/routes/matches';
+    import { index as rankingIndex } from '@/routes/ranking';
     import { index as teamsIndex } from '@/routes/teams';
+    import { index as typowanieIndex, overview as typowanieOverview } from '@/routes/typowanie';
     import type { BreadcrumbItem, NavItem } from '@/types';
 
     let {
@@ -61,6 +60,11 @@
 
     const mainNavItems: NavItem[] = [
         {
+            title: 'Ranking',
+            href: rankingIndex(),
+            icon: Trophy,
+        },
+        {
             title: 'Ekstraklasa',
             href: dashboard(),
             icon: LayoutGrid,
@@ -70,18 +74,20 @@
             href: teamsIndex(),
             icon: Shield,
         },
-    ];
-
-    const rightNavItems: NavItem[] = [
         {
-            title: 'Repository',
-            href: 'https://github.com/laravel/svelte-starter-kit',
-            icon: Folder,
+            title: 'Mecze',
+            href: matchesIndex(),
+            icon: CalendarDays,
         },
         {
-            title: 'Documentation',
-            href: 'https://laravel.com/docs/starter-kits#svelte',
-            icon: BookOpen,
+            title: 'Typowanie',
+            href: typowanieIndex(),
+            icon: Dices,
+        },
+        {
+            title: 'Przegląd typów',
+            href: typowanieOverview(),
+            icon: Table2,
         },
     ];
 </script>
@@ -131,21 +137,6 @@
                                     </Link>
                                 {/each}
                             </nav>
-                            <div class="flex flex-col space-y-4">
-                                {#each rightNavItems as item (toUrl(item.href))}
-                                    <a
-                                        href={toUrl(item.href)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="flex items-center space-x-2 text-sm font-medium"
-                                    >
-                                        {#if item.icon}
-                                            <item.icon class="h-5 w-5" />
-                                        {/if}
-                                        <span>{item.title}</span>
-                                    </a>
-                                {/each}
-                            </div>
                         </div>
                     </SheetContent>
                 </Sheet>
@@ -201,36 +192,6 @@
                             class="size-5 opacity-80 group-hover:opacity-100"
                         />
                     </Button>
-
-                    <div class="hidden space-x-1 lg:flex">
-                        {#each rightNavItems as item (toUrl(item.href))}
-                            <TooltipProvider delayDuration={0}>
-                                <Tooltip>
-                                    <TooltipTrigger>
-                                        {#snippet child({ props })}
-                                            <a
-                                                href={toUrl(item.href)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                {...props}
-                                                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 w-9 group cursor-pointer"
-                                            >
-                                                <span class="sr-only"
-                                                    >{item.title}</span
-                                                >
-                                                <item.icon
-                                                    class="size-5 opacity-80 group-hover:opacity-100"
-                                                />
-                                            </a>
-                                        {/snippet}
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{item.title}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        {/each}
-                    </div>
                 </div>
 
                 <DropdownMenu>

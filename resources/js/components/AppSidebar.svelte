@@ -1,9 +1,11 @@
 <script lang="ts">
     import { Link, page } from '@inertiajs/svelte';
-    import BookOpen from 'lucide-svelte/icons/book-open';
-    import FolderGit2 from 'lucide-svelte/icons/folder-git-2';
+    import CalendarDays from 'lucide-svelte/icons/calendar-days';
+    import Dices from 'lucide-svelte/icons/dices';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
+    import Table2 from 'lucide-svelte/icons/table-2';
     import Shield from 'lucide-svelte/icons/shield';
+    import Trophy from 'lucide-svelte/icons/trophy';
     import Users from 'lucide-svelte/icons/users';
     import type { Snippet } from 'svelte';
     import AppLogo from '@/components/AppLogo.svelte';
@@ -21,7 +23,10 @@
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
     import { dashboard } from '@/routes';
+    import { index as matchesIndex } from '@/routes/matches';
+    import { index as rankingIndex } from '@/routes/ranking';
     import { index as teamsIndex } from '@/routes/teams';
+    import { index as typowanieIndex, overview as typowanieOverview } from '@/routes/typowanie';
     import { index as usersIndex } from '@/routes/users';
     import type { NavItem } from '@/types';
 
@@ -33,6 +38,11 @@
 
     const mainNavItems: NavItem[] = [
         {
+            title: 'Ranking',
+            href: rankingIndex(),
+            icon: Trophy,
+        },
+        {
             title: 'Ekstraklasa',
             href: dashboard(),
             icon: LayoutGrid,
@@ -41,6 +51,21 @@
             title: 'Kluby',
             href: teamsIndex(),
             icon: Shield,
+        },
+        {
+            title: 'Mecze',
+            href: matchesIndex(),
+            icon: CalendarDays,
+        },
+        {
+            title: 'Typowanie',
+            href: typowanieIndex(),
+            icon: Dices,
+        },
+        {
+            title: 'Przegląd typów',
+            href: typowanieOverview(),
+            icon: Table2,
         },
     ];
 
@@ -54,21 +79,6 @@
                 icon: Users,
             });
         }
-
-        items.push(
-            {
-                title: 'Repository',
-                href: 'https://github.com/laravel/svelte-starter-kit',
-                icon: FolderGit2,
-                external: true,
-            },
-            {
-                title: 'Documentation',
-                href: 'https://laravel.com/docs/starter-kits#svelte',
-                icon: BookOpen,
-                external: true,
-            },
-        );
 
         return items;
     });
@@ -102,7 +112,9 @@
     </SidebarContent>
 
     <SidebarFooter>
-        <NavFooter items={footerNavItems} />
+        {#if footerNavItems.length > 0}
+            <NavFooter items={footerNavItems} />
+        {/if}
         <NavUser />
     </SidebarFooter>
 </Sidebar>
