@@ -1,11 +1,13 @@
 <script lang="ts">
     import { Link, page } from '@inertiajs/svelte';
+    import Calendar from 'lucide-svelte/icons/calendar';
     import CalendarDays from 'lucide-svelte/icons/calendar-days';
     import Dices from 'lucide-svelte/icons/dices';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Table2 from 'lucide-svelte/icons/table-2';
     import Shield from 'lucide-svelte/icons/shield';
     import Trophy from 'lucide-svelte/icons/trophy';
+    import UserRound from 'lucide-svelte/icons/user-round';
     import Users from 'lucide-svelte/icons/users';
     import type { Snippet } from 'svelte';
     import AppLogo from '@/components/AppLogo.svelte';
@@ -23,7 +25,9 @@
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
     import { dashboard } from '@/routes';
+    import { index as calendarIndex } from '@/routes/calendar';
     import { index as matchesIndex } from '@/routes/matches';
+    import { index as playersIndex } from '@/routes/players';
     import { index as rankingIndex } from '@/routes/ranking';
     import { index as teamsIndex } from '@/routes/teams';
     import { index as typowanieIndex, overview as typowanieOverview } from '@/routes/typowanie';
@@ -53,9 +57,19 @@
             icon: Shield,
         },
         {
+            title: 'Zawodnicy',
+            href: playersIndex(),
+            icon: UserRound,
+        },
+        {
             title: 'Mecze',
             href: matchesIndex(),
             icon: CalendarDays,
+        },
+        {
+            title: 'Kalendarz',
+            href: calendarIndex(),
+            icon: Calendar,
         },
         {
             title: 'Typowanie',

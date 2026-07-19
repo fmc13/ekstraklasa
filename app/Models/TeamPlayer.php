@@ -58,11 +58,49 @@ class TeamPlayer extends Model
      * @param  Builder<TeamPlayer>  $query
      * @return Builder<TeamPlayer>
      */
-    public function scopeForTeamSeason(Builder $query, int $leagueId, int $season, int $apiTeamId): Builder
+    public function scopeForLeagueSeason(Builder $query, int $leagueId, int $season): Builder
     {
         return $query
             ->where('league_id', $leagueId)
-            ->where('season', $season)
+            ->where('season', $season);
+    }
+
+    /**
+     * @param  Builder<TeamPlayer>  $query
+     * @return Builder<TeamPlayer>
+     */
+    public function scopeForTeamSeason(Builder $query, int $leagueId, int $season, int $apiTeamId): Builder
+    {
+        return $query
+            ->forLeagueSeason($leagueId, $season)
             ->where('api_team_id', $apiTeamId);
+    }
+
+    public function surname(): string
+    {
+        $parts = preg_split('/\s+/u', trim($this->name)) ?: [];
+
+        if ($parts === [] || $parts[0] === '') {
+            return $this->name;
+        }
+
+        return (string) end($parts);
+    }
+
+    public function surnameLetter(): string
+    {
+        $letter = mb_strtoupper(mb_substr($this->surname(), 0, 1));
+
+        return match ($letter) {
+            'Ą' => 'A',
+            'Ć' => 'C',
+            'Ę' => 'E',
+            'Ł' => 'L',
+            'Ń' => 'N',
+            'Ó' => 'O',
+            'Ś' => 'S',
+            'Ź', 'Ż' => 'Z',
+            default => $letter,
+        };
     }
 }
