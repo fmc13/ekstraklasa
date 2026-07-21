@@ -204,3 +204,22 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 - IMPORTANT: Activate `inertia-svelte-development` when working with Inertia Svelte client-side patterns.
 
 </laravel-boost-guidelines>
+
+## Cursor Cloud specific instructions
+
+This is a Laravel 13 / PHP 8.5 app (product: "Ekstraklasa" football match-prediction) with an Inertia v3 + Svelte 5 frontend built by Vite, using Fortify auth and `spatie/laravel-permission`. Dependencies (Composer + npm) are refreshed automatically by the startup update script; the notes below cover non-obvious startup/run caveats.
+
+### Running the app (dev)
+- Standard dev command is `composer run dev` (runs `php artisan serve` + `php artisan queue:listen` + `npm run dev` concurrently). You can also run `php artisan serve --host=0.0.0.0 --port=8000` and `npm run dev` separately in their own long-lived shells (e.g. tmux).
+- `.env` `APP_URL` in `.env.example` is set for XAMPP subdirectory hosting (`http://localhost/ekstraklasa/public`). Vite derives its `base` from the `APP_URL` path (see `vite.config.ts`), so for `php artisan serve` you MUST set `APP_URL=http://localhost:8000` (or set `VITE_BASE=/`), otherwise assets 404 under `/ekstraklasa/public/build/`. Run `php artisan config:clear` after changing `.env`.
+- The Vite dev server binds to `[::1]:5173` (IPv6 localhost) with base `/build/`; assets resolve at e.g. `http://[::1]:5173/build/@vite/client`.
+- Wayfinder-generated route/action modules (`@/actions/*`, `@/routes/*`) are produced by the Vite build/dev step. A fresh checkout has none, so `npm run types:check` (svelte-check) reports many "Cannot find module '@/routes/...'" errors until you run `npm run dev` or `npm run build` once.
+
+### Database & login
+- Default DB is SQLite at `database/database.sqlite`. It is not created by `composer setup`; create it with `touch database/database.sqlite` before `php artisan migrate`. Sessions/cache/queue all use the `database` driver by default.
+- `php artisan migrate --seed` seeds an admin user via `RoleAndPermissionSeeder`: `filipmilewski@gmail.com` / `Widzew13!#` (already email-verified). Fortify has NO self-registration route enabled, so use this seeded account (or create users via the admin `/users` CRUD) to log in.
+- There is no demo fixture/team data. Real data comes from external sync commands (`php artisan football:sync-*` needs `API_FOOTBALL_KEY`; `php artisan gol24:sync-fixtures` scrapes gol24.pl). For local testing of the prediction flow, seed upcoming fixtures with `Fixture::factory()` (need `status_short='NS'` and a future `kickoff_at` so the prediction window is open).
+
+### Lint / types / test
+- Commands are defined in `composer.json` and `package.json` scripts: `composer lint:check` (Pint), `npm run lint:check` (ESLint), `npm run format:check` (Prettier), `composer types:check` (PHPStan level 7), `npm run types:check` (svelte-check), and `php artisan test` (Pest). `composer test` chains config:clear + pint + phpstan + tests.
+- Note: on the current `main`, `composer types:check` (PHPStan) and the lint/format checks report pre-existing failures in application code that are unrelated to environment setup; `php artisan test` passes (103 passed, 3 skipped).
