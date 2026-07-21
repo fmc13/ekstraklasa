@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Support\PublicPath;
 
 test('returns a successful response', function () {
     $this->withoutVite();
@@ -92,13 +93,13 @@ test('local env template targets artisan serve instead of xampp subdirectory', f
         ->toContain('ekstraklasa/public');
 });
 
-test('forceRootUrl is limited to production so LAN hosts keep working assets', function () {
-    $source = file_get_contents(app_path('Providers/AppServiceProvider.php'));
+test('forceRootUrl supports production and local xampp subdirectory', function () {
+    $source = file_get_contents(app_path('Support/RootUrlConfigurator.php'));
 
     expect($source)
         ->toContain('isProduction()')
         ->toContain('forceRootUrl')
-        ->toContain('URL::forceRootUrl($appUrl)');
+        ->toContain('getSchemeAndHttpHost()');
 });
 
 test('inertia shares publicBase for static images under public/', function () {
@@ -135,6 +136,6 @@ test('home page uses the ekstraklasa brand logo as favicon', function () {
     $response = $this->get(route('login'));
 
     $response->assertOk();
-    $response->assertSee(parse_url(asset('images/logo_ekstraklasa.png'), PHP_URL_PATH), false);
+    $response->assertSee(PublicPath::to('images/logo_ekstraklasa.png'), false);
     $response->assertDontSee('http://localhost/ekstraklasa/public/images/logo_ekstraklasa.png', false);
 });
