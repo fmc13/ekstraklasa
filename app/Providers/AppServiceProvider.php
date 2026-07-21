@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
+use App\Support\RootUrlConfigurator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -32,9 +32,14 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureDefaults(): void
     {
-        if ($appUrl = config('app.url')) {
-            URL::forceRootUrl($appUrl);
-        }
+        $request = $this->app->bound('request')
+            ? $this->app->make('request')
+            : null;
+
+        $this->app->make(RootUrlConfigurator::class)->configure(
+            config('app.url'),
+            $request,
+        );
 
         Date::use(CarbonImmutable::class);
 

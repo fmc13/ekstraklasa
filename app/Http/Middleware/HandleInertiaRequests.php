@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\PublicPath;
+use App\Support\RootUrlConfigurator;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -36,6 +38,9 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Per-request: XAMPP path z APP_URL + aktualny host (LAN IP vs localhost).
+        app(RootUrlConfigurator::class)->configure(config('app.url'), $request);
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -44,6 +49,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'canManageUsers' => $request->user()?->can('viewAny', User::class) ?? false,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Ścieżka public/ (XAMPP w podkatalogu, artisan serve, produkcja).
+            'publicBase' => PublicPath::base(),
         ];
     }
 }
