@@ -4,8 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <link rel="icon" href="{{ asset('images/logo_ekstraklasa.png') }}" type="image/png">
-        <link rel="apple-touch-icon" href="{{ asset('images/logo_ekstraklasa.png') }}">
+        {{-- Path-only: unikamy absolutnego localhost przy dostępie z innego hosta w LAN --}}
+        <link rel="icon" href="{{ parse_url(asset('images/logo_ekstraklasa.png'), PHP_URL_PATH) }}" type="image/png">
+        <link rel="apple-touch-icon" href="{{ parse_url(asset('images/logo_ekstraklasa.png'), PHP_URL_PATH) }}">
 
         @fonts
 

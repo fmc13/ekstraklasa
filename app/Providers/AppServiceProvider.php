@@ -32,7 +32,10 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureDefaults(): void
     {
-        if ($appUrl = config('app.url')) {
+        // Tylko produkcja: lokalnie (artisan serve / XAMPP / dostęp po IP w LAN)
+        // asset() i route() muszą brać host z bieżącego requestu — inaczej logo,
+        // favicon i tła wskazują na localhost i „znikają” w przeglądarce w sieci.
+        if ($this->app->isProduction() && ($appUrl = config('app.url'))) {
             URL::forceRootUrl($appUrl);
         }
 

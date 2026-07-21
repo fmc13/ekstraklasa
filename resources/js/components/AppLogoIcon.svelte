@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { page } from '@inertiajs/svelte';
+    import { resolvePublicBase } from '@/lib/publicBase';
+
     let {
         class: className = '',
         ...rest
@@ -7,10 +10,12 @@
         [key: string]: unknown;
     } = $props();
 
-    // Vite BASE_URL ends with /build/ — strip it so local XAMPP subdirectory
-    // and production domain root both resolve public/images correctly.
-    const publicBase = import.meta.env.BASE_URL.replace(/\/build\/?$/, '/');
-    const logoSrc = `${publicBase}images/logo_ekstraklasa.png`;
+    const logoSrc = $derived.by(() => {
+        // Odczyt page.props w derived — ścieżka z serwera ma pierwszeństwo przed Vite BASE_URL.
+        void page.props.publicBase;
+
+        return `${resolvePublicBase()}images/logo_ekstraklasa.png`;
+    });
 </script>
 
 <img

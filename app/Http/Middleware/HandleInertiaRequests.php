@@ -44,6 +44,31 @@ class HandleInertiaRequests extends Middleware
             ],
             'canManageUsers' => $request->user()?->can('viewAny', User::class) ?? false,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Ścieżka public/ względem aktualnego requestu (XAMPP w podkatalogu,
+            // artisan serve na /, dostęp po IP w LAN) — niezależna od Vite BASE_URL.
+            'publicBase' => $this->publicBase(),
         ];
+    }
+
+    /**
+     * Root-relative base for files in public/ (trailing slash).
+     */
+    private function publicBase(): string
+    {
+        $assetPath = parse_url(asset('images/logo_ekstraklasa.png'), PHP_URL_PATH);
+
+        if (! is_string($assetPath) || $assetPath === '') {
+            return '/';
+        }
+
+        $imagesDir = dirname($assetPath);
+        $base = dirname($imagesDir);
+        $normalized = str_replace('\\', '/', $base);
+
+        if ($normalized === '/' || $normalized === '.') {
+            return '/';
+        }
+
+        return rtrim($normalized, '/').'/';
     }
 }

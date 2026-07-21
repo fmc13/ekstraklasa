@@ -1,5 +1,7 @@
 <script lang="ts">
+    import { page } from '@inertiajs/svelte';
     import type { Snippet } from 'svelte';
+    import { resolvePublicBase } from '@/lib/publicBase';
 
     let {
         children,
@@ -7,10 +9,11 @@
         children?: Snippet;
     } = $props();
 
-    // Vite BASE_URL ends with /build/ — strip it to reach public/ on both
-    // local subdirectory installs and production domain roots.
-    const publicBase = import.meta.env.BASE_URL.replace(/\/build\/?$/, '/');
-    const stadiumSrc = `${publicBase}images/stadium-bg.jpg`;
+    const stadiumSrc = $derived.by(() => {
+        void page.props.publicBase;
+
+        return `${resolvePublicBase()}images/stadium-bg.jpg`;
+    });
 </script>
 
 <div

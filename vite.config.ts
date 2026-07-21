@@ -42,9 +42,23 @@ function resolveViteBase(env: Record<string, string>): string {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
+    const hmrHost = env.VITE_HMR_HOST?.trim();
 
     return {
         base: resolveViteBase(env),
+        server: {
+            // Nasłuchuj na wszystkich interfejsach — inaczej JS/CSS (a z nimi logo
+            // i tła w komponentach Svelte) nie wczytają się z innego PC w LAN.
+            host: true,
+            cors: true,
+            ...(hmrHost
+                ? {
+                      hmr: {
+                          host: hmrHost,
+                      },
+                  }
+                : {}),
+        },
         plugins: [
             laravel({
                 input: ['resources/css/app.css', 'resources/js/app.ts'],

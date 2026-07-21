@@ -23,6 +23,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             canManageUsers: boolean;
             sidebarOpen: boolean;
+            publicBase: string;
             [key: string]: unknown;
         };
     }

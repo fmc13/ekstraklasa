@@ -59,18 +59,57 @@ test('logo component uses public image path derived from vite base', function ()
     $source = file_get_contents(resource_path('js/components/AppLogoIcon.svelte'));
 
     expect($source)
-        ->toContain('import.meta.env.BASE_URL')
+        ->toContain('resolvePublicBase')
         ->toContain('images/logo_ekstraklasa.png')
         ->not->toContain("'/images/logo_ekstraklasa.png'");
 });
 
-test('vite config defaults asset base to /build/ for font urls', function () {
+test('auth glass layout resolves stadium background via public base', function () {
+    $source = file_get_contents(resource_path('js/layouts/auth/AuthGlassLayout.svelte'));
+
+    expect($source)
+        ->toContain('resolvePublicBase')
+        ->toContain('images/stadium-bg.jpg');
+});
+
+test('vite config listens on all interfaces for LAN asset loading', function () {
     $source = file_get_contents(base_path('vite.config.ts'));
 
     expect($source)
+        ->toContain('host: true')
+        ->toContain('VITE_HMR_HOST')
         ->toContain("return '/build/'")
         ->toContain('/build/')
         ->not->toContain("let base = '/'");
+});
+
+test('local env template targets artisan serve instead of xampp subdirectory', function () {
+    $env = file_get_contents(base_path('.env.example'));
+
+    expect($env)
+        ->toContain('APP_URL=http://127.0.0.1:8000')
+        ->toContain('VITE_HMR_HOST')
+        ->toContain('ekstraklasa/public');
+});
+
+test('forceRootUrl is limited to production so LAN hosts keep working assets', function () {
+    $source = file_get_contents(app_path('Providers/AppServiceProvider.php'));
+
+    expect($source)
+        ->toContain('isProduction()')
+        ->toContain('forceRootUrl')
+        ->toContain('URL::forceRootUrl($appUrl)');
+});
+
+test('inertia shares publicBase for static images under public/', function () {
+    $this->withoutVite();
+
+    $response = $this->get(route('login'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->where('publicBase', '/')
+    );
 });
 
 test('sqlite connection uses an absolute database path', function () {
@@ -96,5 +135,6 @@ test('home page uses the ekstraklasa brand logo as favicon', function () {
     $response = $this->get(route('login'));
 
     $response->assertOk();
-    $response->assertSee(asset('images/logo_ekstraklasa.png'), false);
+    $response->assertSee(parse_url(asset('images/logo_ekstraklasa.png'), PHP_URL_PATH), false);
+    $response->assertDontSee('http://localhost/ekstraklasa/public/images/logo_ekstraklasa.png', false);
 });
