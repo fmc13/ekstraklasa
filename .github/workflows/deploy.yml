@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Pobranie repozytorium
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -21,7 +21,7 @@ jobs:
           extensions: mbstring, xml, ctype, fileinfo, mysql, sqlite, tokenizer, pdo, pdo_mysql, pdo_sqlite
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -114,7 +114,7 @@ jobs:
             bootstrap/cache/.gitkeep
 
       - name: Wdrożenie przez FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
